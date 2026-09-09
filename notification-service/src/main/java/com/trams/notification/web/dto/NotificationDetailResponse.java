@@ -6,13 +6,7 @@ import com.trams.notification.domain.NotificationStatus;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Full representation of a single notification, including the rendered body.
- *
- * <p>{@code lastError} is included because the recipient's own view of a failed
- * notification should explain why it has not arrived. It carries a delivery diagnostic
- * (an SMTP response, say), never an internal stack trace.
- */
+/** Full representation of a single notification, including the rendered body. */
 public record NotificationDetailResponse(
         UUID id,
         UUID eventId,

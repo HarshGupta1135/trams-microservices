@@ -14,19 +14,14 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
-/**
- * Mints short-lived, stateless RS256 access tokens.
- *
- * <p>Access tokens are intentionally not stored anywhere: verification is a signature
- * check, so every service can authenticate a caller without a database lookup or a call
- * back to this service. The cost of that is that an issued token cannot be revoked before
- * it expires, which is exactly why the lifetime is short and why the revocable half of
- * the pair is the refresh token.
- */
+/** Mints short-lived, stateless RS256 access tokens. */
 @Service
 public class AccessTokenIssuer {
 
-    /** Marks the token's purpose, so a token minted for another use cannot be replayed as an access token. */
+    /**
+     * Marks the token's purpose, so a token minted for another use cannot be replayed as an
+     * access token.
+     */
     private static final String TOKEN_TYPE = "access";
 
     private final JwtEncoder jwtEncoder;
@@ -37,11 +32,6 @@ public class AccessTokenIssuer {
         this.properties = properties;
     }
 
-    /**
-     * @param token the compact JWS
-     * @param expiresAt absolute expiry, for a client that wants to refresh proactively
-     * @param expiresInSeconds relative expiry, as OAuth 2 clients expect
-     */
     public record IssuedAccessToken(String token, Instant expiresAt, long expiresInSeconds) {}
 
     public IssuedAccessToken issue(User user) {

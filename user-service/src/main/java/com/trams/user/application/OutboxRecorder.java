@@ -14,19 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Appends a domain event to the transactional outbox.
- *
- * <p>This is the write half of reliable publishing. It performs a plain database INSERT
- * and never touches the broker, which is precisely the point: the event becomes durable
- * as part of the same transaction as the domain change, so the two cannot diverge. A
- * broker outage cannot fail the business operation, and a rolled-back operation cannot
- * leak an event.
- *
- * <p>{@link Propagation#MANDATORY} enforces this by construction — calling it outside a
- * transaction is a startup-visible programming error rather than a subtle atomicity bug
- * discovered in production.
- */
+/** Appends a domain event to the transactional outbox. */
 @Service
 public class OutboxRecorder {
 
@@ -45,11 +33,7 @@ public class OutboxRecorder {
         this.correlationIds = correlationIds;
     }
 
-    /**
-     * Records an event, to be published after the surrounding transaction commits.
-     *
-     * @throws IllegalStateException if invoked outside an active transaction
-     */
+    /** Records an event, to be published after the surrounding transaction commits. */
     @Transactional(propagation = Propagation.MANDATORY)
     public EventEnvelope<UserEventPayload> record(UserEventPayload payload, Instant occurredAt) {
         UserEventType eventType = payload.eventType();

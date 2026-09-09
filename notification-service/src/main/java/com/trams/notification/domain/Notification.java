@@ -9,19 +9,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * A notification that was composed for a recipient, and the record of what happened to it.
- *
- * <p>This entity doubles as the idempotency record for the event that produced it: the
- * unique {@code eventId} means a redelivered event cannot create a second notification,
- * and {@code status} says how far the previous attempt got so a retry can resume instead
- * of duplicating a send.
- *
- * <p>Recipient details are copied from the event rather than looked up. A notification is
- * a historical record of what was sent to which address, so it must not change
- * retroactively when the user later edits their profile — and this service has no way to
- * query the User Service anyway, by design.
- */
+/** A notification that was composed for a recipient, and the record of what happened to it. */
 @Entity
 @Table(name = "notifications")
 public class Notification {
@@ -142,13 +130,7 @@ public class Notification {
         this.lastError = null;
     }
 
-    /**
-     * Records a failed attempt.
-     *
-     * @param exhausted true when no further redelivery will occur, in which case the
-     *     notification is marked {@link NotificationStatus#DEAD} so it is visible as
-     *     permanently undelivered rather than looking merely "in progress" forever
-     */
+    /** Records a failed attempt. */
     public void markAttemptFailed(String error, boolean exhausted, Instant now) {
         this.attempts += 1;
         this.lastError = truncate(error, 4_000);

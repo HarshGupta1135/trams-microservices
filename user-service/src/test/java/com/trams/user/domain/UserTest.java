@@ -7,7 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-/** Tests the invariants the {@link User} entity owns. */
+/** Tests the invariants the User entity owns. */
 class UserTest {
 
     private static final Instant NOW = Instant.parse("2026-03-04T05:06:07Z");

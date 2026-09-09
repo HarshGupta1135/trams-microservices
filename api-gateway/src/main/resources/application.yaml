@@ -1,11 +1,6 @@
-###############################################################################
-# API Gateway - the single public entry point
-#
-# Note the property namespace: `spring.cloud.gateway.server.webflux.*`.
-# Spring Cloud Gateway 5.x split its configuration by runtime, and the legacy
-# `spring.cloud.gateway.routes` prefix is silently ignored - it binds nothing
-# and the gateway starts with zero routes.
-###############################################################################
+# Note the property namespace: spring.cloud.gateway.server.webflux.*
+# Gateway 5.x split its config by runtime, and the old spring.cloud.gateway
+# prefix is silently ignored - it binds nothing and you get zero routes.
 
 spring:
   application:

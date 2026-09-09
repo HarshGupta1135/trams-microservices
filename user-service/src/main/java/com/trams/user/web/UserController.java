@@ -30,15 +30,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Authenticated user endpoints.
- *
- * <p>The caller's identity always comes from the verified JWT subject, never from a path
- * or body parameter. That distinction is the whole of the authorisation model here: a user
- * can only ever act on {@code /me}, so there is no route on which one user could reference
- * another's id and hope the check was forgotten. Cross-user access is confined to the
- * explicitly admin-gated routes below.
- */
+/** Authenticated user endpoints. */
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "Users", description = "Profile management and administrative user access")
@@ -115,14 +107,8 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    // ---------------------------------------------------------------------
-    // Administrative routes
-    //
-    // Authorisation is enforced here with @PreAuthorize as well as at the
-    // gateway. The duplication is deliberate: the gateway's check is a fast
-    // rejection at the edge, while this one is the authoritative control that
-    // still holds if a request ever reaches the service by another path.
-    // ---------------------------------------------------------------------
+    // Administrative routes Authorisation is enforced here with @PreAuthorize as well as at the
+    // gateway.
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -153,12 +139,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * The authenticated user's id, taken from the token's {@code sub} claim.
-     *
-     * <p>The token's signature has already been verified by the resource-server filter, so
-     * this value is trustworthy in a way that a request parameter never is.
-     */
+    /** The authenticated user's id, taken from the token's sub claim. */
     private static UUID subjectOf(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }

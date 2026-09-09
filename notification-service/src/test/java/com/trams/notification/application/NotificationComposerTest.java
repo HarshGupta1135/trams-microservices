@@ -18,13 +18,7 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-/**
- * Renders every notification against the real templates.
- *
- * <p>Worth testing directly because a template failure is otherwise invisible until an
- * event arrives in production: the composer runs on the consumer thread, so a broken
- * template would surface as an unprocessable event rather than as a failing build.
- */
+/** Renders every notification against the real templates. */
 class NotificationComposerTest {
 
     private static final UUID USER_ID = UUID.randomUUID();
@@ -34,10 +28,8 @@ class NotificationComposerTest {
 
     @BeforeAll
     static void setUp() {
-        // Mirrors Spring Boot's Thymeleaf auto-configuration exactly, including the
-        // engine type. A plain TemplateEngine would use the OGNL-based standard dialect,
-        // which Boot deliberately excludes in favour of SpEL - so testing against one
-        // would both fail at runtime and test a dialect the application never uses.
+        // Mirrors Spring Boot's Thymeleaf auto-configuration exactly, including the engine
+        // type.
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
         resolver.setPrefix("templates/");
         resolver.setSuffix(".html");
@@ -132,9 +124,7 @@ class NotificationComposerTest {
     @Test
     @DisplayName("a name containing markup is escaped, not injected into the email")
     void escapesUntrustedInput() {
-        // The name comes from user input that crossed a service boundary. Thymeleaf
-        // escapes interpolated values by default; this asserts that nobody has reached
-        // for th:utext, which would turn a display name into an HTML injection vector.
+        // The name comes from user input that crossed a service boundary.
         NotificationContent content =
                 composer.compose(
                         new UserEventPayload.UserRegistered(

@@ -11,19 +11,7 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
-/**
- * Renders an event into a subject line and an HTML body.
- *
- * <p>Composition is deliberately separate from delivery: this class is pure (event in,
- * text out), so every message can be unit-tested without a mail server, and the same
- * content can later be delivered over a different channel without re-rendering.
- *
- * <p>The {@code switch} below is exhaustive over the sealed {@link UserEventPayload}
- * hierarchy and has no {@code default} branch. That is the point of sealing the contract:
- * adding an event type to {@code common-contracts} makes this file fail to compile until
- * the new event is given a message, so a new event can never silently produce no
- * notification.
- */
+/** Renders an event into a subject line and an HTML body. */
 @Service
 public class NotificationComposer {
 
@@ -107,7 +95,7 @@ public class NotificationComposer {
         return TIMESTAMP.format(instant.atZone(ZoneOffset.UTC));
     }
 
-    /** {@code fullName} -> {@code full name}. */
+    /** fullName -> full name. */
     private static String humanise(String fieldName) {
         return fieldName.replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase();
     }

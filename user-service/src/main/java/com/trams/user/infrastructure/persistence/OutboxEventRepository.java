@@ -11,20 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> {
 
-    /**
-     * Claims a batch of due events for this relay instance.
-     *
-     * <p>{@code FOR UPDATE SKIP LOCKED} is what makes the relay horizontally scalable.
-     * Rows claimed by one instance are locked for the duration of its transaction, and
-     * other instances step over them instead of blocking. Several replicas therefore
-     * process disjoint batches concurrently with no coordination, no leader election and
-     * no risk of two relays publishing the same row.
-     *
-     * <p>Ordering by {@code created_at} preserves per-aggregate causal order in the common
-     * case. Note that strict global ordering is not guaranteed under concurrency — a
-     * property inherent to parallel relays, and the reason consumers are written to be
-     * idempotent rather than order-dependent.
-     */
+    /** Claims a batch of due events for this relay instance. */
     @Query(
             value =
                     """

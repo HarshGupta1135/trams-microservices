@@ -1,13 +1,6 @@
 package com.trams.contracts;
 
-/**
- * Central registry of broker topology names.
- *
- * <p>Subjects are hierarchical ({@code <domain>.events.<fact>}), which lets NATS
- * authorisation be expressed per domain: the User Service is permitted to publish only to
- * {@code user.events.>} and cannot subscribe, while the Notification Service can
- * subscribe but not publish there. See {@code infra/nats/nats-server.conf}.
- */
+/** Central registry of broker topology names. */
 public final class Subjects {
 
     /** JetStream stream that durably persists all user domain events. */

@@ -12,13 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * OpenAPI document for the User Service.
- *
- * <p>The advertised server is the <em>gateway</em>, not this service's own port: the
- * gateway is the only address a client can reach, so documenting anything else would give
- * a reader a URL that does not work from outside the internal network.
- */
+/** OpenAPI document for the User Service. */
 @Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
 

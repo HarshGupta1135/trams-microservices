@@ -27,24 +27,6 @@ import tools.jackson.databind.JsonNode;
 /**
  * Durable, pull-based JetStream consumer with at-least-once delivery, bounded retries and
  * dead-lettering.
- *
- * <p>Pull semantics are what make the consuming service horizontally scalable: every
- * replica binds to the <em>same</em> durable consumer, so JetStream distributes messages
- * between them, and {@code max_ack_pending} supplies natural back-pressure instead of
- * overwhelming a slow replica.
- *
- * <p>The delivery contract for handlers:
- *
- * <ul>
- *   <li>return normally → the message is acknowledged and will not be seen again
- *   <li>throw {@link TransientEventException} (or anything unclassified) → negatively
- *       acknowledged and redelivered per the backoff ladder
- *   <li>throw {@link PermanentEventException} → terminated at once and dead-lettered
- * </ul>
- *
- * <p>Unclassified exceptions are treated as transient deliberately: retrying a genuinely
- * permanent failure merely delays the dead letter by the delivery budget, whereas
- * discarding a genuinely transient one loses the event for good.
  */
 public class DurableEventConsumer implements AutoCloseable {
 
@@ -55,17 +37,7 @@ public class DurableEventConsumer implements AutoCloseable {
 
     private static final String MDC_EVENT_ID = "eventId";
 
-    /**
-     * Delivery metadata for the current attempt.
-     *
-     * <p>Handed to the handler so it can distinguish a first attempt from a final one.
-     * That matters for recording state: on the last attempt the work is about to be
-     * dead-lettered, so a handler should mark its own record permanently undelivered
-     * rather than leaving it looking merely "in progress".
-     *
-     * @param attempt 1 on first delivery, incrementing with each redelivery
-     * @param lastAttempt true when no further redelivery will follow
-     */
+    /** Delivery metadata for the current attempt. */
     public record DeliveryContext(long attempt, long maxDeliver, boolean lastAttempt) {}
 
     /** Handles one parsed event. */
@@ -101,12 +73,7 @@ public class DurableEventConsumer implements AutoCloseable {
                         1, Thread.ofVirtual().name("event-heartbeat-", 0).factory());
     }
 
-    /**
-     * Reconciles the durable consumer and starts consuming.
-     *
-     * <p>{@code createOrUpdateConsumer} is idempotent, so every replica can call it at
-     * startup and the last one simply confirms the same configuration.
-     */
+    /** Reconciles the durable consumer and starts consuming. */
     public void start() {
         try {
             streamContext.createOrUpdateConsumer(consumerConfiguration());
@@ -114,9 +81,8 @@ public class DurableEventConsumer implements AutoCloseable {
             ConsumeOptions consumeOptions =
                     ConsumeOptions.builder().batchSize(settings.batchSize()).build();
 
-            // Each binding pulls independently from the same durable consumer, which is
-            // how a single process scales beyond one in-flight message. Scaling further
-            // is a matter of adding replicas.
+            // Each binding pulls independently from the same durable consumer, which is how a
+            // single process scales beyond one in-flight message.
             for (int i = 0; i < settings.concurrency(); i++) {
                 bindings.add(
                         streamContext
@@ -232,10 +198,6 @@ public class DurableEventConsumer implements AutoCloseable {
     /**
      * Periodically tells the broker the handler is still working, which extends the
      * acknowledgement deadline.
-     *
-     * <p>Without this, a handler that legitimately takes longer than {@code ack_wait} —
-     * an SMTP conversation with a slow relay, say — would have its message redelivered
-     * while it was still being processed, producing duplicate work.
      */
     private ScheduledFuture<?> startHeartbeat(Message message) {
         long intervalMillis = Math.max(1_000L, settings.ackWait().toMillis() / 3);
@@ -257,13 +219,7 @@ public class DurableEventConsumer implements AutoCloseable {
         return running;
     }
 
-    /**
-     * Stops accepting new messages and lets in-flight handlers finish.
-     *
-     * <p>{@code stop()} drains rather than severing: messages already delivered are
-     * processed and acknowledged, so a rolling deploy does not force redelivery of work
-     * that had effectively completed.
-     */
+    /** Stops accepting new messages and lets in-flight handlers finish. */
     @Override
     public void close() {
         running = false;
@@ -284,14 +240,7 @@ public class DurableEventConsumer implements AutoCloseable {
         log.info("Consumer '{}' stopped", settings.durableName());
     }
 
-    /**
-     * Tuning for a durable consumer.
-     *
-     * @param ackWait how long a handler may hold a message before redelivery
-     * @param maxDeliver delivery attempts before the message is dead-lettered
-     * @param maxAckPending ceiling on unacknowledged messages, i.e. back-pressure
-     * @param concurrency independent bindings within this process
-     */
+    /** Tuning for a durable consumer. */
     public record ConsumerSettings(
             String streamName,
             String durableName,
@@ -306,7 +255,7 @@ public class DurableEventConsumer implements AutoCloseable {
 
         /**
          * Builds the redelivery delay ladder: one entry per retry, doubling each time and
-         * capped at {@link #backoffMax()}.
+         * capped at #backoffMax().
          */
         public Duration[] backoffLadder() {
             int steps = (int) Math.max(1, maxDeliver - 1);

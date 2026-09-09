@@ -15,13 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Registers new accounts.
- *
- * <p>The account row and the {@code user.registered} event are written in a single
- * transaction, so a welcome notification can never be sent for a registration that failed,
- * and a successful registration can never silently fail to notify.
- */
+/** Registers new accounts. */
 @Service
 public class UserRegistrationService {
 
@@ -38,16 +32,11 @@ public class UserRegistrationService {
         this.outbox = outbox;
     }
 
-    /**
-     * @throws EmailAlreadyRegisteredException if the address is taken
-     */
     @Transactional
     public User register(String email, String rawPassword, String fullName) {
         String normalisedEmail = User.normaliseEmail(email);
 
-        // Cheap pre-check for the ordinary case. It is not sufficient on its own - two
-        // concurrent requests can both pass it - so the unique constraint below is the
-        // actual guarantee.
+        // Cheap pre-check for the ordinary case.
         if (users.existsByEmail(normalisedEmail)) {
             throw new EmailAlreadyRegisteredException();
         }

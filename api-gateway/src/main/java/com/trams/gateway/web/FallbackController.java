@@ -11,15 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Responses served when a route's circuit breaker is open or its upstream timed out.
- *
- * <p>Without a fallback, a failing upstream surfaces as a bare 500 with no explanation. A
- * 503 plus {@code Retry-After} tells a client something specific and actionable: the
- * request was not processed, this is temporary, and here is when to try again. That
- * distinction matters because a client must not retry a non-idempotent request that may
- * have succeeded - and an open circuit guarantees it did not.
- */
+/** Responses served when a route's circuit breaker is open or its upstream timed out. */
 @RestController
 @RequestMapping("/fallback")
 public class FallbackController {

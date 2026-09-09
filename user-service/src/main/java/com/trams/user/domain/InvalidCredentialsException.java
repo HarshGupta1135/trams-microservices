@@ -1,11 +1,6 @@
 package com.trams.user.domain;
 
-/**
- * Raised for both an unknown email and a wrong password.
- *
- * <p>One indistinguishable failure for both cases is deliberate: separate responses would
- * let an attacker enumerate which addresses have accounts before attempting any password.
- */
+/** Raised for both an unknown email and a wrong password. */
 public class InvalidCredentialsException extends DomainException {
 
     public InvalidCredentialsException() {

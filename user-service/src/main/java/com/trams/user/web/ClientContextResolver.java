@@ -3,19 +3,7 @@ package com.trams.user.web;
 import com.trams.user.application.RefreshTokenService.ClientContext;
 import jakarta.servlet.http.HttpServletRequest;
 
-/**
- * Extracts the caller's network context for audit purposes.
- *
- * <p>{@code X-Forwarded-For} is honoured because this service is only reachable through
- * the API Gateway, which sets it. That trust is not unconditional: the header is only
- * meaningful because direct access to this service is blocked at the network level and by
- * the internal-key filter. A service exposed straight to the internet must never trust it,
- * since a client can set it freely and thereby forge its own source address — which would
- * poison audit records and defeat any IP-based control.
- *
- * <p>Only the first entry is taken: proxies append, so the left-most value is the original
- * client as recorded by the first trusted hop.
- */
+/** Extracts the caller's network context for audit purposes. */
 final class ClientContextResolver {
 
     private static final String FORWARDED_FOR = "X-Forwarded-For";

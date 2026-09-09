@@ -11,20 +11,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Converts between event envelopes and the bytes on the wire.
- *
- * <p>Deserialisation is two-phase on purpose. The envelope is read first with its payload
- * left as an unparsed {@link JsonNode}, so routing decisions (which handler, which schema,
- * is this type even known?) are made from validated metadata before any payload-specific
- * code runs. Only then is the payload bound to its concrete type. A malformed payload
- * therefore cannot prevent the consumer from identifying and correctly dead-lettering the
- * message.
- *
- * <p>Payloads are validated against the Bean Validation constraints declared on the
- * shared contract, which makes the consumer a genuine enforcement point rather than a
- * trusting one: a producer bug cannot quietly write a notification with a blank email.
- */
+/** Converts between event envelopes and the bytes on the wire. */
 public class EventCodec {
 
     private static final TypeReference<EventEnvelope<JsonNode>> RAW_ENVELOPE = new TypeReference<>() {};
@@ -37,10 +24,6 @@ public class EventCodec {
         this.validator = validator;
     }
 
-    /**
-     * @throws IllegalStateException if the envelope cannot be serialised, which would be
-     *     a programming error rather than a runtime condition
-     */
     public byte[] serialise(EventEnvelope<? extends UserEventPayload> envelope) {
         try {
             return objectMapper.writeValueAsBytes(envelope);
@@ -69,11 +52,7 @@ public class EventCodec {
         return envelope;
     }
 
-    /**
-     * Binds and validates the payload of an already-parsed envelope.
-     *
-     * @throws PermanentEventException if the payload does not match the declared contract
-     */
+    /** Binds and validates the payload of an already-parsed envelope. */
     public <T extends UserEventPayload> T readPayload(EventEnvelope<JsonNode> envelope, Class<T> payloadType) {
         T payload;
         try {

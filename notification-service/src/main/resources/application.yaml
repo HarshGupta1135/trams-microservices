@@ -1,10 +1,5 @@
-###############################################################################
-# Notification Service
-#
-# Consumes user domain events from NATS JetStream. It holds only the JWT public
-# key (it never issues tokens) and has no database access to, or HTTP client
-# for, the User Service.
-###############################################################################
+# Consumes user events from NATS JetStream. Holds only the JWT public key, and
+# has no database access to or HTTP client for the User Service.
 
 spring:
   application:

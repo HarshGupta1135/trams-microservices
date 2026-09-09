@@ -4,14 +4,7 @@ import java.util.List;
 import java.util.function.Function;
 import org.springframework.data.domain.Page;
 
-/**
- * Envelope for a paged collection.
- *
- * <p>Spring's own {@code Page} serialises with an unstable, implementation-defined shape,
- * so a fixed contract is defined here instead. Collection endpoints are always paged: an
- * unbounded list endpoint is a denial-of-service vector against the service's own memory
- * once the table grows.
- */
+/** Envelope for a paged collection. */
 public record PageResponse<T>(
         List<T> content, int page, int size, long totalElements, int totalPages, boolean hasNext) {
 

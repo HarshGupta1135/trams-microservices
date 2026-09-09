@@ -8,20 +8,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-/**
- * Password hashing.
- *
- * <p><strong>Argon2id</strong> is the default. It is memory-hard, which is what
- * distinguishes it from bcrypt in practice: an attacker with GPUs or ASICs gains far less
- * advantage when each guess must also allocate tens of megabytes.
- *
- * <p>The encoder is wrapped in a {@link DelegatingPasswordEncoder}, so every stored hash
- * is prefixed with the algorithm that produced it ({@code {argon2}$argon2id$...}). This
- * is what makes future migration possible without a flag day: bcrypt hashes remain
- * verifiable, and new passwords are written with the current default. Storing a bare hash
- * with no algorithm marker is the mistake that makes an algorithm upgrade a breaking
- * change.
- */
+/** Password hashing. */
 @Configuration(proxyBeanMethods = false)
 public class PasswordEncoderConfig {
 

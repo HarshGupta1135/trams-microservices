@@ -105,10 +105,7 @@ class AuthenticationServiceTest {
     @Test
     @DisplayName("an unknown account still performs a password verification")
     void equalisesWorkForUnknownAccounts() {
-        // This is the anti-enumeration property. If the service returned early for an
-        // unknown address, the "no such user" path would be measurably faster than the
-        // "wrong password" path, and response timing would reveal which addresses have
-        // accounts - defeating the identical error message.
+        // This is the anti-enumeration property.
         when(users.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.matches("any-password", "{argon2}$dummy")).thenReturn(false);
 

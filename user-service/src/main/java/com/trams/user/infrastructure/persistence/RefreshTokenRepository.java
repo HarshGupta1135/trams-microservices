@@ -17,13 +17,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     List<RefreshToken> findByUserIdAndRevokedAtIsNull(UUID userId);
 
-    /**
-     * Revokes every token in a rotation family.
-     *
-     * <p>Invoked when an already-consumed token is replayed, which indicates theft. A
-     * bulk update is used deliberately: this must take effect immediately and completely,
-     * not token-by-token while an attacker is actively refreshing.
-     */
+    /** Revokes every token in a rotation family. */
     @Modifying
     @Query(
             """
@@ -51,13 +45,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
             @Param("when") Instant when,
             @Param("reason") String reason);
 
-    /**
-     * Removes tokens that expired long ago.
-     *
-     * <p>Expired tokens are already unusable, so this is hygiene rather than security:
-     * it stops the table growing without bound. The grace period keeps recent history
-     * available for investigating a suspected token theft.
-     */
+    /** Removes tokens that expired long ago. */
     @Modifying
     @Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :cutoff")
     int deleteExpiredBefore(@Param("cutoff") Instant cutoff);

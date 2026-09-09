@@ -40,13 +40,7 @@ import org.mockito.quality.Strictness;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Tests how the handler settles each kind of outcome.
- *
- * <p>The classification is the whole point: getting it wrong means either retrying a
- * message that can never succeed (blocking the queue behind a poison event) or discarding
- * one that would have succeeded on a second attempt (losing a user's notification).
- */
+/** Tests how the handler settles each kind of outcome. */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class UserEventHandlerTest {
@@ -78,8 +72,8 @@ class UserEventHandlerTest {
     }
 
     /**
-     * The envelope rejects a null payload by contract, so an empty node stands in for the
-     * raw JSON the codec would normally hand back.
+     * The envelope rejects a null payload by contract, so an empty node stands in for the raw
+     * JSON the codec would normally hand back.
      */
     private static EventEnvelope<JsonNode> envelopeOfType(String type) {
         JsonNode emptyPayload = new JsonMapper().createObjectNode();
@@ -103,9 +97,8 @@ class UserEventHandlerTest {
     @Test
     @DisplayName("an unknown event type is permanent, so it is dead-lettered rather than retried")
     void unknownEventTypeIsPermanent() throws Exception {
-        // During a rolling deploy a newer producer may emit an event this consumer does
-        // not know. Retrying it five times would achieve nothing; dead-lettering makes it
-        // visible and replayable once this service is updated.
+        // During a rolling deploy a newer producer may emit an event this consumer does not
+        // know.
         EventEnvelope<JsonNode> envelope = envelopeOfType("user.invented_yesterday");
 
         assertThatThrownBy(() -> handler.handle(envelope, FIRST_ATTEMPT))

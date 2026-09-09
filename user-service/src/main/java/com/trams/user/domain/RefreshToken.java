@@ -8,16 +8,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A stored refresh token, represented only by the SHA-256 hash of the opaque value handed
- * to the client.
- *
- * <p><strong>Rotation with reuse detection.</strong> Each refresh consumes the presented
- * token and issues a replacement in the same {@code familyId}. A token is therefore valid
- * exactly once. If an already-consumed token is presented again, the only explanations
- * are a stolen token being replayed or a client bug — either way the correct response is
- * to revoke the entire family, forcing re-authentication. Without this, an attacker who
- * copied a refresh token could keep minting access tokens indefinitely alongside the
- * legitimate user, undetected.
+ * A stored refresh token, represented only by the SHA-256 hash of the opaque value handed to
+ * the client.
  */
 @Entity
 @Table(name = "refresh_tokens")

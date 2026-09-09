@@ -9,17 +9,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    /** @param email must already be normalised via {@link User#normaliseEmail(String)} */
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
 
-    /**
-     * Paged listing for administrators.
-     *
-     * <p>Paging is mandatory rather than optional: an unbounded "list all users" endpoint
-     * is a denial-of-service vector against the service's own memory as the table grows.
-     */
+    /** Paged listing for administrators. */
     @Override
     Page<User> findAll(Pageable pageable);
 }

@@ -24,17 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Read-only notification history.
- *
- * <p>This is the service's only HTTP surface, and it exists purely for clients. It plays
- * no part in the integration with the User Service: that happens exclusively over NATS
- * JetStream, and there is no endpoint here that the User Service calls, nor any HTTP
- * client pointing back at it.
- *
- * <p>Every route is scoped to the caller's own history, derived from the verified token
- * subject. There is no endpoint that accepts an arbitrary recipient id.
- */
+/** Read-only notification history. */
 @RestController
 @RequestMapping("/api/v1/notifications")
 @Tag(name = "Notifications", description = "Notification history for the authenticated user")
@@ -90,12 +80,7 @@ public class NotificationController {
                 notifications.requireOwned(notificationId, subjectOf(jwt)));
     }
 
-    /**
-     * The caller's id, from the token's verified {@code sub} claim.
-     *
-     * <p>Taking it from the token rather than a parameter is what makes every query above
-     * inherently scoped to the right user.
-     */
+    /** The caller's id, from the token's verified sub claim. */
     private static UUID subjectOf(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }

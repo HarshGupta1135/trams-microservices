@@ -9,11 +9,6 @@ import java.util.stream.Collectors;
 /**
  * The registry binding each user event to its wire name, subject, payload type and schema
  * version.
- *
- * <p>This is the single source of truth for both sides of the integration: the producer
- * derives the subject it publishes to from this enum, and the consumer resolves the
- * concrete payload class from it. There is no second place where a subject name is
- * spelled out, so the two can never drift apart.
  */
 public enum UserEventType {
     REGISTERED("user.registered", "registered", 1, UserEventPayload.UserRegistered.class),
@@ -36,7 +31,7 @@ public enum UserEventType {
         this.payloadType = payloadType;
     }
 
-    /** The value carried in {@link EventEnvelope#type()}. */
+    /** The value carried in EventEnvelope#type(). */
     public String wireName() {
         return wireName;
     }
@@ -54,13 +49,7 @@ public enum UserEventType {
         return payloadType;
     }
 
-    /**
-     * Resolves a wire name, returning empty for an unrecognised type.
-     *
-     * <p>Deliberately not throwing: a consumer receiving an unknown event type is an
-     * expected condition during a rolling deploy where the producer is already emitting a
-     * newer event. The caller decides whether that is a dead letter or simply ignorable.
-     */
+    /** Resolves a wire name, returning empty for an unrecognised type. */
     public static Optional<UserEventType> fromWireName(String wireName) {
         return Optional.ofNullable(BY_WIRE_NAME.get(wireName));
     }

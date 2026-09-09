@@ -19,22 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-/**
- * Framework-level error handling shared by every service.
- *
- * <p>Extends {@link ResponseEntityExceptionHandler} rather than declaring a bare
- * {@code @ExceptionHandler(Exception.class)}. That base class already maps every standard
- * Spring MVC failure to the right status — a non-numeric path variable, an unparseable
- * enum in a query string, an unsupported {@code Content-Type}, a wrong HTTP method — and a
- * catch-all handler would intercept all of them first and report each as a 500.
- *
- * <p>That distinction is not cosmetic. A 500 means "this service is broken" and should wake
- * somebody; a 400 means "the caller sent something wrong" and should not. Misreporting one
- * as the other corrupts alerting, error budgets and client retry behaviour alike.
- *
- * <p>Ordered at the lowest precedence, so a service can register its own advice for domain
- * failures and have it consulted first.
- */
+/** Framework-level error handling shared by every service. */
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class DefaultExceptionHandler extends ResponseEntityExceptionHandler {
@@ -53,12 +38,7 @@ public class DefaultExceptionHandler extends ResponseEntityExceptionHandler {
                     429, "RATE_LIMITED",
                     503, "SERVICE_UNAVAILABLE");
 
-    /**
-     * Bean Validation failures on a request body, reported field by field.
-     *
-     * <p>Overrides the base implementation to add the {@code errors} array — a client
-     * fixing a form needs to know <em>which</em> fields were rejected and why.
-     */
+    /** Bean Validation failures on a request body, reported field by field. */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -84,13 +64,7 @@ public class DefaultExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
-    /**
-     * Final step for every exception the base class handles.
-     *
-     * <p>Spring already produced a {@link ProblemDetail}; this decorates it with the two
-     * extension members the rest of the system uses, so a 415 from the framework looks
-     * exactly like a 409 from the domain.
-     */
+    /** Final step for every exception the base class handles. */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(
             Exception e, Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -116,11 +90,7 @@ public class DefaultExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.FORBIDDEN, "You do not have permission to perform this action.", "FORBIDDEN");
     }
 
-    /**
-     * Concurrent writes touched the same row.
-     *
-     * <p>409, not 500: the request was well-formed and retrying it will usually succeed.
-     */
+    /** Concurrent writes touched the same row. */
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ProblemDetail handleConcurrentModification(ObjectOptimisticLockingFailureException e) {
         return ProblemDetails.of(
@@ -129,13 +99,7 @@ public class DefaultExceptionHandler extends ResponseEntityExceptionHandler {
                 "CONCURRENT_MODIFICATION");
     }
 
-    /**
-     * Anything genuinely unanticipated — a defect.
-     *
-     * <p>Reaches here only if no more specific handler matched, so a 500 now means what it
-     * should. The stack trace is logged and a deliberately vague message returned:
-     * exception text routinely contains SQL fragments, class names and filesystem paths.
-     */
+    /** Anything genuinely unanticipated — a defect. */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception e) {
         log.error("Unhandled exception while processing a request", e);

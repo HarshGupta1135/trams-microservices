@@ -10,12 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-    /**
-     * Looks up the notification already recorded for an event.
-     *
-     * <p>This is the read side of the idempotency check: if a row exists, this event has
-     * been seen before and its status says whether the work finished.
-     */
+    /** Looks up the notification already recorded for an event. */
     Optional<Notification> findByEventId(UUID eventId);
 
     /** Recipient-facing history, newest first. */

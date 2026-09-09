@@ -9,15 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-/**
- * Guards the published event contract.
- *
- * <p>These assertions look almost tautological, and that is the point: the registry is the
- * single place where a subject name, a wire name and a payload class are bound together,
- * so a careless edit here would silently break the integration between two independently
- * deployed services. A failing test is far cheaper than a producer publishing to a subject
- * no consumer is listening on.
- */
+/** Guards the published event contract. */
 class UserEventTypeTest {
 
     @ParameterizedTest

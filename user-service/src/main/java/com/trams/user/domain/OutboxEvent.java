@@ -13,17 +13,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * One row of the transactional outbox: an event that has been committed to the database
- * and is awaiting publication to the broker.
- *
- * <p>The row is inserted in the same transaction as the domain change it describes, which
- * is what makes publishing reliable. Either both are durable or neither is; there is no
- * interleaving in which a user is created without its event, or an event escapes for a
- * transaction that rolled back.
- *
- * <p>{@code id} is the event id from the envelope, and the relay passes it to the broker
- * as the deduplication key. That is what makes a redundant republish — the relay crashed
- * after the broker stored the message but before this row was marked published — harmless.
+ * One row of the transactional outbox: an event that has been committed to the database and is
+ * awaiting publication to the broker.
  */
 @Entity
 @Table(name = "outbox_events")
@@ -50,11 +41,7 @@ public class OutboxEvent {
     @Column(nullable = false, updatable = false, length = 256)
     private String subject;
 
-    /**
-     * The complete serialised envelope. Storing the finished payload keeps the relay free
-     * of domain knowledge: it ships bytes and records the outcome, so adding an event type
-     * never requires touching the relay.
-     */
+    /** The complete serialised envelope. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, updatable = false, columnDefinition = "jsonb")
     private String payload;
@@ -138,12 +125,7 @@ public class OutboxEvent {
         this.lastError = null;
     }
 
-    /**
-     * Records a failed publish and schedules the next attempt.
-     *
-     * @param maxAttempts once reached, the row is marked {@link OutboxStatus#FAILED} and
-     *     left for an operator: silently retrying forever would hide a genuine outage.
-     */
+    /** Records a failed publish and schedules the next attempt. */
     public void markAttemptFailed(String error, Instant now, int maxAttempts, Duration baseBackoff, Duration maxBackoff) {
         this.attempts += 1;
         this.lastError = truncate(error, 4_000);
@@ -158,7 +140,6 @@ public class OutboxEvent {
         long delayMillis = Math.min(maxBackoff.toMillis(), baseBackoff.toMillis() * (1L << exponent));
         this.nextAttemptAt = now.plusMillis(delayMillis);
     }
-
 
     private static String truncate(String value, int maxLength) {
         if (value == null) return null;

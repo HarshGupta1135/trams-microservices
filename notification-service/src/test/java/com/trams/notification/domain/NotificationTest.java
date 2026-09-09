@@ -7,12 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests the notification's delivery state machine.
- *
- * <p>The status is not merely a label: it is what a redelivery of the same event consults to
- * decide whether to resume or skip, so each transition has to be exact.
- */
+/** Tests the notification's delivery state machine. */
 class NotificationTest {
 
     private static final Instant CREATED = Instant.parse("2026-03-04T05:06:07Z");

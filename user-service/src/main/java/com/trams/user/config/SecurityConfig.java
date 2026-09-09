@@ -8,12 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * HTTP security for the User Service: a stateless resource server.
- *
- * <p>Transport hardening, token verification and error rendering come from
- * {@link ResourceServerDefaults}, so only this service's route rules are declared here.
- */
+/** HTTP security for the User Service: a stateless resource server. */
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 // Enables @PreAuthorize on controller methods, so an authorisation rule sits next to the
@@ -21,13 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    /**
-     * The only routes reachable without a token.
-     *
-     * <p>Enumerated individually rather than as {@code /api/v1/auth/**}: a wildcard would
-     * silently expose any future endpoint added under that prefix, whereas this list
-     * fails closed until someone deliberately adds to it.
-     */
+    /** The only routes reachable without a token. */
     private static final String[] PUBLIC_AUTH_PATHS = {
         "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout"
     };

@@ -40,19 +40,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * End-to-end test of the event pipeline against a real PostgreSQL and a real NATS broker.
- *
- * <p>This is the test that matters most in the whole suite. Everything interesting about
- * this service happens at the boundary between a broker that guarantees only
- * <em>at-least-once</em> delivery and a database that must end up with
- * <em>exactly one</em> notification. That interaction cannot be verified with mocks:
- * duplicate delivery, unique-constraint enforcement and consumer acknowledgement are all
- * properties of the real infrastructure.
- *
- * <p>Run with {@code mvn verify} (Failsafe). It is excluded from {@code mvn test} because
- * it needs a Docker daemon.
- */
+/** End-to-end test of the event pipeline against a real PostgreSQL and a real NATS broker. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class EventFlowIT {
 
@@ -62,13 +50,7 @@ class EventFlowIT {
                     .withUsername("notifications_test")
                     .withPassword("notifications_test");
 
-    /**
-     * There is no Testcontainers module for NATS, so the official image is driven
-     * directly. {@code -js} enables JetStream, without which the stream below cannot be
-     * created. TLS and authentication are left off here deliberately: this test is about
-     * delivery semantics, and the transport security is exercised by the real Compose
-     * environment instead.
-     */
+    /** There is no Testcontainers module for NATS, so the official image is driven directly. */
     private static final GenericContainer<?> NATS =
             new GenericContainer<>(DockerImageName.parse("nats:2.11-alpine"))
                     .withCommand("-js")
@@ -77,12 +59,7 @@ class EventFlowIT {
 
     private static String publicKeyBase64;
 
-    /*
-     * Containers are started in a static initialiser rather than through the
-     * @Testcontainers extension because the producer's stream must exist before the
-     * Spring context starts: the consumer waits for it, and creating it afterwards would
-     * race the application's own startup.
-     */
+    /* Containers are started in a static initialiser rather than through the */
     static {
         POSTGRES.start();
         NATS.start();
@@ -143,10 +120,7 @@ class EventFlowIT {
     @Test
     @DisplayName("redelivering the same event produces exactly one notification")
     void isDuplicateSafe() throws Exception {
-        // The core reliability property. JetStream guarantees at-least-once delivery, so
-        // a consumer that crashed after sending but before acknowledging WILL see the
-        // event again. The unique constraint on event_id is what turns that into
-        // exactly-once effect - one stored notification, one email.
+        // The core reliability property.
         EventEnvelope<UserEventPayload> event = registeredEvent("duplicate@example.com");
 
         publish(event);
@@ -158,9 +132,8 @@ class EventFlowIT {
                                 assertThat(reload(first.getId()).getStatus())
                                         .isEqualTo(NotificationStatus.SENT));
 
-        // Publish the identical envelope again, bypassing broker deduplication by using a
-        // fresh message id. This simulates a genuine redelivery rather than a duplicate
-        // publish, so the consumer's own idempotency is what has to hold.
+        // Publish the identical envelope again, bypassing broker deduplication by using a fresh
+        // message id.
         publishBypassingBrokerDeduplication(event);
 
         // Give the consumer time to handle (and skip) the redelivery.
@@ -210,9 +183,7 @@ class EventFlowIT {
         assertThat(notifications.findByEventId(eventId)).isEmpty();
     }
 
-    // ------------------------------------------------------------------
     // Helpers
-    // ------------------------------------------------------------------
 
     private static String natsUrl() {
         return "nats://" + NATS.getHost() + ":" + NATS.getMappedPort(4222);
@@ -242,12 +213,7 @@ class EventFlowIT {
         }
     }
 
-    /**
-     * Publishes the same envelope with a different broker message id.
-     *
-     * <p>JetStream would otherwise collapse the second publish inside its duplicate
-     * window, which would test the broker's deduplication rather than the consumer's.
-     */
+    /** Publishes the same envelope with a different broker message id. */
     private void publishBypassingBrokerDeduplication(EventEnvelope<UserEventPayload> event) throws Exception {
         try (Connection connection = connect()) {
             connection
@@ -282,8 +248,8 @@ class EventFlowIT {
     }
 
     /**
-     * The service requires a verification key at startup even though this test never
-     * presents a token, so a throwaway key pair is generated rather than committing one.
+     * The service requires a verification key at startup even though this test never presents a
+     * token, so a throwaway key pair is generated rather than committing.
      */
     private static String generateVerificationKey() {
         try {

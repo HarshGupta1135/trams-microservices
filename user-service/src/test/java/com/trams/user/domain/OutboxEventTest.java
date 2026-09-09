@@ -8,13 +8,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests the outbox row's retry state machine.
- *
- * <p>This logic decides whether a failed event is retried, when, and when it stops being
- * retried. Getting it wrong means either an event that is silently abandoned or a relay
- * that hammers a broken broker forever.
- */
+/** Tests the outbox row's retry state machine. */
 class OutboxEventTest {
 
     private static final Instant NOW = Instant.parse("2026-03-04T05:06:07Z");
@@ -105,7 +99,6 @@ class OutboxEventTest {
         assertThat(event.getStatus()).isEqualTo(OutboxStatus.FAILED);
         assertThat(event.getLastError()).isEqualTo("permanent problem");
     }
-
 
     @Test
     @DisplayName("an oversized error message is truncated rather than failing the write")

@@ -17,17 +17,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * Translates this service's domain failures into HTTP responses.
- *
- * <p>Ordered ahead of {@code common-web}'s {@code DefaultExceptionHandler}, which handles
- * everything framework-level (validation, malformed bodies, access denied, the catch-all).
- * Only what is specific to user identity lives here.
- *
- * <p>Mapping status codes in one table rather than scattering them across controllers
- * means the API's error contract can be read in one place — and that a new domain
- * exception cannot accidentally surface as a 500.
- */
+/** Translates this service's domain failures into HTTP responses. */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class DomainExceptionHandler {

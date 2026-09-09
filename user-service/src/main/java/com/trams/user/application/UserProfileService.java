@@ -18,12 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Reads and modifies user profiles.
- *
- * <p>Every mutation records its event in the same transaction as the change itself, so the
- * notification a user receives always corresponds to a change that actually committed.
- */
+/** Reads and modifies user profiles. */
 @Service
 public class UserProfileService {
 
@@ -56,14 +51,7 @@ public class UserProfileService {
         return users.findAll(pageable);
     }
 
-    /**
-     * Applies a partial profile update. Null fields are left untouched.
-     *
-     * <p>No event is emitted when nothing actually changed: a client that re-submits an
-     * unchanged form should not generate a notification.
-     *
-     * @throws EmailAlreadyRegisteredException if the new address belongs to someone else
-     */
+    /** Applies a partial profile update. */
     @Transactional
     public User updateProfile(UUID userId, String fullName, String email) {
         User user = requireById(userId);
@@ -101,19 +89,7 @@ public class UserProfileService {
         return user;
     }
 
-    /**
-     * Changes a password after verifying the current one.
-     *
-     * <p>Re-authentication is required even though the caller already holds a valid access
-     * token: it is what stops a stolen token from being escalated into permanent account
-     * takeover.
-     *
-     * <p>All other sessions are then revoked, which is the point of the operation from a
-     * security standpoint — if the password is being changed because it was compromised,
-     * leaving the attacker's refresh token alive would defeat the exercise.
-     *
-     * @throws InvalidCredentialsException if the current password is wrong
-     */
+    /** Changes a password after verifying the current one. */
     @Transactional
     public void changePassword(UUID userId, String currentPassword, String newPassword, String requestIp) {
         User user = requireById(userId);
@@ -137,13 +113,7 @@ public class UserProfileService {
         log.info("Password changed for user {}; all sessions revoked", userId);
     }
 
-    /**
-     * Deletes an account.
-     *
-     * <p>The event is recorded before the row is removed, while the address and name are
-     * still available — the Notification Service needs them to send the confirmation, and
-     * by design it cannot call back to ask.
-     */
+    /** Deletes an account. */
     @Transactional
     public void delete(UUID userId) {
         User user = requireById(userId);

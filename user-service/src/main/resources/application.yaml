@@ -1,10 +1,5 @@
-###############################################################################
-# User Service
-#
-# Every secret is read from the environment and has no default. The service
-# fails fast at startup if one is missing, rather than silently falling back to
-# a well-known value.
-###############################################################################
+# Every secret comes from the environment with no default, so a missing value
+# fails startup rather than silently falling back.
 
 spring:
   application:

@@ -16,18 +16,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Publishes events to JetStream with acknowledgement, bounded retries and broker-side
  * deduplication.
- *
- * <p>Two properties make this reliable rather than best-effort:
- *
- * <ol>
- *   <li>{@code js.publish} returns only once the stream has <em>persisted</em> the
- *       message. A returned {@link PublishAck} is a durability guarantee, not a
- *       fire-and-forget hand-off.
- *   <li>The event id is sent as the message id, so a retry after an ambiguous failure
- *       (stored successfully, acknowledgement lost) is collapsed by the stream's duplicate
- *       window instead of producing a second event. This is what lets the outbox relay
- *       retry freely without risking duplicates.
- * </ol>
  */
 public class EventPublisher {
 
@@ -39,11 +27,6 @@ public class EventPublisher {
     private final Duration publishTimeout;
     private final int maxAttempts;
 
-    /**
-     * @param expectedStream the stream this publisher writes to; asserted on every
-     *     publish so a subject/stream misconfiguration is caught immediately rather than
-     *     silently landing events somewhere unexpected
-     */
     public EventPublisher(
             JetStream jetStream,
             EventCodec codec,
@@ -57,17 +40,7 @@ public class EventPublisher {
         this.maxAttempts = Math.max(1, maxAttempts);
     }
 
-    /**
-     * An already-serialised event, ready to ship.
-     *
-     * <p>This is what the transactional outbox relay publishes: the envelope was
-     * serialised when it was recorded, so the relay forwards the exact bytes that were
-     * committed rather than re-serialising them. That keeps the relay free of any domain
-     * knowledge — adding an event type never requires touching it — and removes the
-     * possibility of a round-trip through Jackson altering the payload.
-     *
-     * @param id the event id, used as the broker's deduplication key
-     */
+    /** An already-serialised event, ready to ship. */
     public record RawEvent(
             String id,
             String type,
@@ -77,10 +50,7 @@ public class EventPublisher {
             String correlationId,
             byte[] body) {}
 
-    /**
-     * Publishes a typed envelope. Convenience over {@link #publish(RawEvent)}, used by
-     * tests and by any caller holding a live envelope.
-     */
+    /** Publishes a typed envelope. */
     public PublishAck publish(EventEnvelope<? extends UserEventPayload> envelope) {
         return publish(
                 new RawEvent(
@@ -93,13 +63,6 @@ public class EventPublisher {
                         codec.serialise(envelope)));
     }
 
-    /**
-     * @throws TransientEventException if the broker could not be reached after exhausting
-     *     the attempt budget; the caller (the outbox relay) leaves the row pending and
-     *     retries later, so the event is never lost
-     * @throws IllegalStateException if the broker rejects the publish outright, which
-     *     indicates a topology or permissions problem rather than a transient fault
-     */
     public PublishAck publish(RawEvent event) {
         Headers headers = buildHeaders(event);
 
@@ -150,9 +113,7 @@ public class EventPublisher {
                     sleep(backoffMillis);
                 }
             } catch (JetStreamApiException e) {
-                // The broker answered and refused. Retrying an authorisation or
-                // configuration error only produces noise, so fail immediately with a
-                // message that names the likely cause.
+                // The broker answered and refused.
                 throw new IllegalStateException(
                         "The broker rejected event %s on subject '%s' (error %d): %s. Check the stream topology and this service's NATS permissions."
                                 .formatted(event.id(), event.subject(), e.getErrorCode(), e.getErrorDescription()),

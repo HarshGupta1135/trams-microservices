@@ -23,13 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Unauthenticated endpoints: registration and the token lifecycle.
- *
- * <p>These are the only routes reachable without a token, which is why the gateway applies
- * a far stricter rate limit to this prefix — it is the surface for credential stuffing and
- * password spraying.
- */
+/** Unauthenticated endpoints: registration and the token lifecycle. */
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "Registration, login, token refresh and logout")

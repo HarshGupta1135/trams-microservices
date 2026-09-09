@@ -7,12 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests refresh-token rotation.
- *
- * <p>The behaviour under test is the basis of theft detection: a token must be redeemable
- * exactly once, so that a second presentation is unambiguous evidence of replay.
- */
+/** Tests refresh-token rotation. */
 class RefreshTokenTest {
 
     private static final Instant ISSUED = Instant.parse("2026-03-04T05:06:07Z");

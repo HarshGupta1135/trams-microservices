@@ -17,18 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Issues, rotates and revokes refresh tokens.
- *
- * <p>Tokens are opaque 256-bit random values — not JWTs. A refresh token's only job is to
- * be presented back to this service, so it needs no self-describing claims, and keeping it
- * opaque means its validity is decided by a database row that can be revoked instantly.
- *
- * <p>Only the SHA-256 hash is persisted, so a database disclosure yields no usable
- * credentials. SHA-256 rather than Argon2 is the right choice here: the input is already
- * 256 bits of entropy and cannot be brute-forced, so a deliberately slow KDF would add
- * latency on every refresh while adding no security.
- */
+/** Issues, rotates and revokes refresh tokens. */
 @Service
 public class RefreshTokenService {
 
@@ -52,10 +41,7 @@ public class RefreshTokenService {
         this.revocations = revocations;
     }
 
-    /**
-     * A freshly minted token. The plaintext exists only in this object and in the response
-     * to the client; it is never logged and never stored.
-     */
+    /** A freshly minted token. */
     public record IssuedRefreshToken(String token, Instant expiresAt) {}
 
     /** Client attributes recorded for audit purposes. */
@@ -81,18 +67,7 @@ public class RefreshTokenService {
     /** The result of a successful rotation. */
     public record RotationResult(UUID userId, IssuedRefreshToken replacement) {}
 
-    /**
-     * Consumes the presented token and issues its successor.
-     *
-     * <p><strong>Reuse detection.</strong> Because rotation revokes the presented token,
-     * a token can only be redeemed once. Seeing an already-revoked token again means it
-     * was captured and replayed (or a client is malfunctioning), and since we cannot tell
-     * which copy is the attacker's, the only safe response is to revoke the whole family
-     * and force re-authentication. Without this step, a stolen refresh token would grant
-     * an attacker indefinite parallel access that the legitimate user would never notice.
-     *
-     * @throws InvalidRefreshTokenException if the token is unknown, expired or replayed
-     */
+    /** Consumes the presented token and issues its successor. */
     @Transactional
     public RotationResult rotate(String presentedToken, ClientContext client) {
         Instant now = Instant.now();
@@ -103,10 +78,8 @@ public class RefreshTokenService {
                         .orElseThrow(() -> new InvalidRefreshTokenException("unknown token"));
 
         if (existing.isRevoked()) {
-            // Committed in its own transaction: this method throws immediately
-            // afterwards, and a revocation performed in *this* transaction would be
-            // rolled back by that exception - reporting the attack while undoing the
-            // defence against it.
+            // Committed in its own transaction: this method throws immediately afterwards, and
+            // a revocation performed in *this* transaction would be rolled back by that.
             int revoked = revocations.revokeFamilyImmediately(existing.getFamilyId(), "reuse-detected");
 
             log.warn(
@@ -141,12 +114,7 @@ public class RefreshTokenService {
                 existing.getUserId(), new IssuedRefreshToken(replacementPlaintext, expiresAt));
     }
 
-    /**
-     * Revokes a single token, i.e. logout.
-     *
-     * <p>Silent on an unknown token: a caller logging out should not be able to learn
-     * whether a given token value exists.
-     */
+    /** Revokes a single token, i.e. logout. */
     @Transactional
     public void revoke(String presentedToken) {
         repository

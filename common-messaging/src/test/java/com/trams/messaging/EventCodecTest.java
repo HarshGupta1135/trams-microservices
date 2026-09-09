@@ -19,13 +19,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Tests the serialisation boundary between the two services.
- *
- * <p>This is the highest-value place to test in the whole messaging layer: it is where an
- * independently deployed producer's bytes meet a consumer's expectations, and where the
- * decision to dead-letter or retry a message is made.
- */
+/** Tests the serialisation boundary between the two services. */
 class EventCodecTest {
 
     private static ObjectMapper objectMapper;
@@ -107,9 +101,7 @@ class EventCodecTest {
     @Test
     @DisplayName("a payload violating the contract is rejected rather than half-processed")
     void rejectsPayloadViolatingTheContract() {
-        // A producer bug: a registered user with no email address. Accepting this would
-        // create a notification that can never be delivered, so the consumer refuses it
-        // and the message is dead-lettered for inspection.
+        // A producer bug: a registered user with no email address.
         EventEnvelope<UserEventPayload> original = registeredEvent();
         String json = new String(codec.serialise(original), StandardCharsets.UTF_8)
                 .replace("\"someone@example.com\"", "\"\"");
@@ -124,10 +116,7 @@ class EventCodecTest {
     @Test
     @DisplayName("unknown payload fields are tolerated, so a producer can add fields safely")
     void toleratesUnknownPayloadFields() {
-        // Forward compatibility is what allows the producer to be deployed before the
-        // consumer. Without this, adding an optional field to an event would break every
-        // consumer that had not yet been rebuilt - the whole point of versioning the
-        // payload separately from the envelope.
+        // Forward compatibility is what allows the producer to be deployed before the consumer.
         EventEnvelope<UserEventPayload> original = registeredEvent();
         String json = new String(codec.serialise(original), StandardCharsets.UTF_8)
                 .replace("\"fullName\":", "\"aFieldFromTheFuture\":\"ignored\",\"fullName\":");

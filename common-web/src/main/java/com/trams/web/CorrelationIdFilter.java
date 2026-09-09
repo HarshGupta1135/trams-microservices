@@ -14,17 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Adopts (or mints) the correlation id for the current request and publishes it to SLF4J's
- * MDC, so every log line and every event emitted while handling the request carries it.
- *
- * <p>This is what makes a distributed system debuggable: one identifier follows a request
- * from the gateway, through this service, into the event envelope, and out through the
- * Notification Service's logs.
- *
- * <p>The inbound value is validated against a strict allow-list rather than trusted.
- * Echoing unvalidated input into a response header invites header injection, and writing
- * it into structured logs invites log forging - an attacker could inject newlines and
- * fabricate log entries.
+ * Adopts (or mints) the correlation id for the current request and publishes it to SLF4J's MDC,
+ * so every log line and every event emitted while handling the.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)

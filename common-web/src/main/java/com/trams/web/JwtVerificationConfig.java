@@ -17,13 +17,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
-/**
- * RS256 access-token verification, identical in every service.
- *
- * <p>Services hold only the public key. Verifying a caller therefore never confers the
- * ability to impersonate one - the reason for choosing asymmetric signing over a shared
- * HMAC secret, where every verifier would also be a potential forger.
- */
+/** RS256 access-token verification, identical in every service. */
 @Configuration(proxyBeanMethods = false)
 public class JwtVerificationConfig {
 
@@ -36,18 +30,7 @@ public class JwtVerificationConfig {
         return RsaKeyLoader.loadPublicKey(properties.publicKeyBase64());
     }
 
-    /**
-     * Builds the decoder.
-     *
-     * <p>The algorithm is pinned to RS256 rather than taken from the token. Honouring the
-     * {@code alg} header is the classic JWT vulnerability: a decoder that trusts it can be
-     * induced to verify an attacker-supplied HMAC signature using the public key as the
-     * shared secret, or to accept {@code alg: none} outright.
-     *
-     * <p>Issuer, audience, expiry and token type are all validated. Skipping the audience
-     * check is the subtler mistake - it would let a token issued for a different service
-     * that happens to trust the same key be replayed here.
-     */
+    /** Builds the decoder. */
     @Bean
     @ConditionalOnMissingBean
     public JwtDecoder jwtDecoder(RSAPublicKey publicKey, TokenProperties properties) {

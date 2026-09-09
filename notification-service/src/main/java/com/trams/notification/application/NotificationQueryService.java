@@ -10,15 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Read access to notification history.
- *
- * <p>Every query is scoped to a recipient id taken from the caller's verified token. There
- * is no method here that fetches a notification by id alone, which is deliberate: an
- * ownership check that has to be remembered at each call site is one that will eventually
- * be forgotten. Making the recipient a required parameter moves that guarantee into the
- * type signature.
- */
+/** Read access to notification history. */
 @Service
 public class NotificationQueryService {
 
@@ -39,17 +31,7 @@ public class NotificationQueryService {
                 recipientUserId, status, pageable);
     }
 
-    /**
-     * Fetches one notification belonging to the given recipient.
-     *
-     * <p>A notification owned by somebody else raises the same not-found error as one that
-     * does not exist. Returning 403 instead would confirm that the id is real, letting an
-     * attacker enumerate valid identifiers and infer other users' activity — the
-     * insecure-direct-object-reference pattern. From the caller's perspective, a
-     * notification they cannot see simply does not exist.
-     *
-     * @throws NotificationNotFoundException if it is missing, or belongs to another user
-     */
+    /** Fetches one notification belonging to the given recipient. */
     @Transactional(readOnly = true)
     public Notification requireOwned(UUID notificationId, UUID recipientUserId) {
         return notifications

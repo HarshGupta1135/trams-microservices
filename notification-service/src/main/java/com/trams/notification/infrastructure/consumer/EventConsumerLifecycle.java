@@ -13,20 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
-/**
- * Starts and stops the durable event consumer with the application.
- *
- * <p>{@link SmartLifecycle} rather than {@code @PostConstruct}: consuming must begin only
- * after the whole context is ready (the database pool, the template engine and the mail
- * sender all have to exist before the first event is handled), and must stop <em>before</em>
- * those beans are torn down. Starting too early would risk handling an event against a
- * half-initialised context; stopping too late would risk handling one against a closed
- * connection pool.
- *
- * <p>The phase is set late so this is among the first components to stop, which is what
- * makes a rolling deploy lossless: the consumer drains in-flight events while the rest of
- * the application is still alive to serve them.
- */
+/** Starts and stops the durable event consumer with the application. */
 @Component
 public class EventConsumerLifecycle implements SmartLifecycle {
 
@@ -57,8 +44,7 @@ public class EventConsumerLifecycle implements SmartLifecycle {
     @Override
     public void start() {
         // This service owns the dead-letter stream, matching its NATS permissions: it may
-        // create DEAD_LETTER and publish to dlq.>, but has no rights to create or modify
-        // USER_EVENTS, which belongs to the producer.
+        // create DEAD_LETTER and publish to dlq.>, but has no rights to create or modify.
         topology.ensureStream(topology.deadLetterStream());
 
         StreamContext streamContext = awaitProducerStream();
@@ -86,14 +72,7 @@ public class EventConsumerLifecycle implements SmartLifecycle {
         consumer.start();
     }
 
-    /**
-     * Waits for the User Service to create the stream this service consumes.
-     *
-     * <p>Compose and Kubernetes both start services concurrently, so booting before the
-     * producer has created {@code USER_EVENTS} is the normal case rather than an error.
-     * Waiting with backoff turns that race into a non-event; crash-looping until the
-     * producer happened to win would be the alternative.
-     */
+    /** Waits for the User Service to create the stream this service consumes. */
     private StreamContext awaitProducerStream() {
         try {
             return topology.awaitStream(
@@ -123,8 +102,8 @@ public class EventConsumerLifecycle implements SmartLifecycle {
     }
 
     /**
-     * Stops early in the shutdown sequence (a high phase stops first), so events drain
-     * while the database and mail sender are still usable.
+     * Stops early in the shutdown sequence (a high phase stops first), so events drain while
+     * the database and mail sender are still usable.
      */
     @Override
     public int getPhase() {

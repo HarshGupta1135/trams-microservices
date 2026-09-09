@@ -1,6 +1,6 @@
 package com.trams.contracts;
 
-/** Logical service names, used as the {@code source} of an event and in log records. */
+/** Logical service names, used as the source of an event and in log records. */
 public final class Sources {
 
     public static final String USER_SERVICE = "user-service";

@@ -6,16 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Writes the notification to the application log instead of sending it.
- *
- * <p>Always available, which is what lets the whole event pipeline be demonstrated and
- * tested with no mail server: select it with {@code trams.notification.channel=LOG}.
- *
- * <p>Only the subject and recipient are logged, never the rendered body - notification
- * bodies contain personal data, and logs are typically retained longer and read more
- * widely than the notifications themselves.
- */
+/** Writes the notification to the application log instead of sending it. */
 @Component
 public class LoggingNotificationSender implements NotificationSender {
 

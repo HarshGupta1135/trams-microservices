@@ -11,13 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-/**
- * Routes a notification to the sender for its channel.
- *
- * <p>Senders are discovered by injecting every {@link NotificationSender} bean, so adding
- * a channel means adding one class - no registration list to keep in sync, and nothing
- * here to change.
- */
+/** Routes a notification to the sender for its channel. */
 @Service
 public class DeliveryRouter {
 
@@ -38,13 +32,7 @@ public class DeliveryRouter {
         log.info("Notification channels registered: {}", senders.keySet());
     }
 
-    /**
-     * Verifies at startup that the configured channel can actually deliver.
-     *
-     * <p>Fails fast on purpose. The alternative - discovering the problem one notification
-     * at a time - means every message is retried to exhaustion and dead-lettered, which
-     * looks like a broker or delivery incident rather than the configuration error it is.
-     */
+    /** Verifies at startup that the configured channel can actually deliver. */
     @PostConstruct
     void verifyConfiguredChannel() {
         NotificationChannel configured = properties.channel();
@@ -67,12 +55,6 @@ public class DeliveryRouter {
         log.info("Notification channel {} is configured and available", configured);
     }
 
-
-    /**
-     * @throws DeliveryException if delivery fails, or if no sender is registered for the
-     *     channel - a misconfiguration, but treated as retryable so that notifications
-     *     queue up rather than being discarded while it is corrected
-     */
     public void deliver(Notification notification) throws DeliveryException {
         NotificationSender sender = senders.get(notification.getChannel());
 

@@ -19,18 +19,7 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import org.springframework.core.io.buffer.DataBuffer;
 import reactor.core.publisher.Mono;
 
-/**
- * Edge authentication and authorisation.
- *
- * <p>Rejecting an unauthenticated request here means it never touches a backing service,
- * never opens a database connection and never consumes a thread downstream — the main
- * reason to authenticate at the edge at all. The services nonetheless verify the token
- * again themselves: this check is an optimisation and a first line of defence, not the
- * authoritative one.
- *
- * <p>Route rules are ordered most-specific first. Anything not explicitly listed requires
- * authentication, so a new route added later fails closed.
- */
+/** Edge authentication and authorisation. */
 @Configuration(proxyBeanMethods = false)
 @EnableWebFluxSecurity
 public class SecurityConfig {
@@ -81,8 +70,7 @@ public class SecurityConfig {
                                         .pathMatchers("/api/v1/notifications/**")
                                         .authenticated()
                                         // Everything else under /users is administrative:
-                                        // listing users, or acting on someone by id. The
-                                        // services re-check this with @PreAuthorize.
+                                        // listing users, or acting on someone by id.
                                         .pathMatchers("/api/v1/users/**")
                                         .hasRole("ADMIN")
                                         .anyExchange()
@@ -129,9 +117,8 @@ public class SecurityConfig {
     }
 
     /**
-     * Maps the token's {@code roles} claim onto Spring Security authorities, identically
-     * to the backing services — a mismatch would make edge and service authorisation
-     * disagree.
+     * Maps the token's roles claim onto Spring Security authorities, identically to the backing
+     * services — a mismatch would make edge and service.
      */
     private static JwtAuthenticationConverter roleConverter() {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
@@ -144,14 +131,7 @@ public class SecurityConfig {
         return converter;
     }
 
-    /**
-     * CORS for browser clients.
-     *
-     * <p>Origins come from an explicit allow-list and credentials are permitted, which is
-     * the combination that makes a wildcard origin unacceptable: with
-     * {@code allowCredentials(true)}, {@code *} would let any website read authenticated
-     * responses on a logged-in user's behalf. The browser itself refuses that pairing.
-     */
+    /** CORS for browser clients. */
     private static CorsConfigurationSource corsConfigurationSource(GatewayEdgeProperties properties) {
         CorsConfiguration configuration = new CorsConfiguration();
 

@@ -12,14 +12,7 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Copies unprocessable messages into a durable dead-letter stream.
- *
- * <p>JetStream stops redelivering a message once {@code max_deliver} is reached, but it
- * does not keep it anywhere a human can find it. Explicitly forwarding the original bytes
- * — together with the reason, origin subject and delivery count — turns a silent drop into
- * an auditable record that can be inspected and replayed after a fix ships.
- */
+/** Copies unprocessable messages into a durable dead-letter stream. */
 public class DeadLetterPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(DeadLetterPublisher.class);
@@ -33,11 +26,6 @@ public class DeadLetterPublisher {
         this.consumerName = consumerName;
     }
 
-    /**
-     * @throws TransientEventException if the dead letter itself cannot be stored. The
-     *     caller must then leave the original message unacknowledged: redelivering it is
-     *     strictly better than dropping it with no record anywhere.
-     */
     public void publish(Message message, String reason, Throwable cause) {
         String subject = Subjects.deadLetter(consumerName);
         Headers headers = buildHeaders(message, reason);

@@ -6,13 +6,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests the redelivery backoff ladder.
- *
- * <p>The ladder is what turns "retry on failure" into something safe to run against a
- * struggling dependency: without increasing delays, five replicas retrying a failing
- * database would keep it failing.
- */
+/** Tests the redelivery backoff ladder. */
 class ConsumerSettingsTest {
 
     private static DurableEventConsumer.ConsumerSettings settings(long maxDeliver, Duration base, Duration max) {

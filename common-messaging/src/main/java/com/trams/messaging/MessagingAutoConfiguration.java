@@ -14,22 +14,12 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Wires the shared messaging infrastructure into any service that puts this module on its
  * classpath.
- *
- * <p>Delivered as an auto-configuration rather than a class each service must remember to
- * {@code @Import}: a service gets a correctly configured, TLS-secured, drain-on-shutdown
- * NATS connection by declaring the dependency, and cannot accidentally half-configure it.
- *
- * <p>Every bean is guarded by {@link ConditionalOnMissingBean}, so a service (or a test)
- * can substitute its own implementation without editing this class.
  */
 @AutoConfiguration
 @EnableConfigurationProperties(NatsProperties.class)
 public class MessagingAutoConfiguration {
 
-    /**
-     * Owns the connection lifecycle. Spring calls {@code destroy()} on shutdown, which
-     * drains in-flight work before closing.
-     */
+    /** Owns the connection lifecycle. */
     @Bean
     @ConditionalOnMissingBean
     public NatsConnectionHolder natsConnectionHolder(NatsProperties properties) {
@@ -55,9 +45,8 @@ public class MessagingAutoConfiguration {
     }
 
     /**
-     * Uses the application's own {@link ObjectMapper} and {@link Validator} so events are
-     * serialised with the same conventions as the HTTP API (ISO-8601 timestamps, tolerant
-     * reading of unknown fields) and validated against the same constraint engine.
+     * Uses the application's own ObjectMapper and Validator so events are serialised with the
+     * same conventions as the HTTP API (ISO-8601 timestamps.
      */
     @Bean
     @ConditionalOnMissingBean

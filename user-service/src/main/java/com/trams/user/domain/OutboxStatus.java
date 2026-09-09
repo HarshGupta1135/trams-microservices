@@ -5,9 +5,6 @@ public enum OutboxStatus {
     PENDING,
     /** Persisted by the broker; the stream has acknowledged it. */
     PUBLISHED,
-    /**
-     * Retries exhausted. The row is kept deliberately: it is the audit trail of an event
-     * the system failed to deliver, and can be replayed once the cause is fixed.
-     */
+    /** Retries exhausted. */
     FAILED
 }

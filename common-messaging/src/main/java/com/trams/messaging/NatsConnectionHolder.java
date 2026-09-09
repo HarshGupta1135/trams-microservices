@@ -13,15 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 
-/**
- * Owns the lifetime of this service's single NATS connection.
- *
- * <p>The client library handles reconnection and buffers outbound messages while
- * disconnected, so this class does not reimplement any of that. What it adds is the part
- * that matters operationally: connection state is logged as structured events (a silent
- * reconnect loop is the hardest broker problem to diagnose), and shutdown *drains* rather
- * than drops, so a rolling deploy does not abandon in-flight acknowledgements.
- */
+/** Owns the lifetime of this service's single NATS connection. */
 public class NatsConnectionHolder implements DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(NatsConnectionHolder.class);

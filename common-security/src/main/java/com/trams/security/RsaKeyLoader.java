@@ -10,15 +10,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
-/**
- * Reads RSA keys supplied as base64-encoded PEM.
- *
- * <p>The double encoding is deliberate. A PEM contains newlines, which cannot be
- * represented in a dotenv file or a Kubernetes environment variable without escaping, so
- * the PEM is base64-encoded once more for transport. Keeping keys in the environment
- * rather than on disk means the same image runs in every environment and no key is ever
- * baked into a build artefact.
- */
+/** Reads RSA keys supplied as base64-encoded PEM. */
 public final class RsaKeyLoader {
 
     private static final String PRIVATE_HEADER = "-----BEGIN PRIVATE KEY-----";
@@ -28,7 +20,6 @@ public final class RsaKeyLoader {
 
     private RsaKeyLoader() {}
 
-    /** @param base64Pem a base64-encoded PKCS#8 PEM ({@code BEGIN PRIVATE KEY}) */
     public static RSAPrivateKey loadPrivateKey(String base64Pem) {
         byte[] der = decodePem(base64Pem, PRIVATE_HEADER, PRIVATE_FOOTER, "private");
 
@@ -41,7 +32,6 @@ public final class RsaKeyLoader {
         }
     }
 
-    /** @param base64Pem a base64-encoded X.509/SPKI PEM ({@code BEGIN PUBLIC KEY}) */
     public static RSAPublicKey loadPublicKey(String base64Pem) {
         byte[] der = decodePem(base64Pem, PUBLIC_HEADER, PUBLIC_FOOTER, "public");
 

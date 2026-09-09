@@ -6,13 +6,7 @@ import com.trams.notification.domain.NotificationStatus;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * List representation of a notification.
- *
- * <p>The rendered body is deliberately omitted: bodies are multi-kilobyte HTML documents,
- * and returning twenty of them per page would make a history request far heavier than it
- * needs to be. Fetch a single notification to read its content.
- */
+/** List representation of a notification. */
 public record NotificationSummaryResponse(
         UUID id,
         UUID eventId,

@@ -8,24 +8,7 @@ import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import reactor.core.publisher.Mono;
 
-/**
- * Rate-limit keys.
- *
- * <p>Two resolvers, because the two kinds of traffic need different keys:
- *
- * <ul>
- *   <li>{@code userKeyResolver} keys on the authenticated user id, so one noisy client
- *       cannot exhaust the budget of everyone sharing an office NAT or mobile carrier
- *       gateway.
- *   <li>{@code ipKeyResolver} keys on source address, and is used on the authentication
- *       routes - by definition there is no user id yet, and those are exactly the
- *       endpoints an attacker hits for credential stuffing.
- * </ul>
- *
- * <p>The limits themselves are backed by Redis rather than in-memory counters, so they
- * remain correct when the gateway runs more than one replica. An in-memory limiter across
- * N replicas silently permits N times the intended rate.
- */
+/** Rate-limit keys. */
 @Configuration(proxyBeanMethods = false)
 public class RateLimiterConfig {
 
@@ -37,9 +20,8 @@ public class RateLimiterConfig {
      * carries no token.
      */
     @Bean
-    // Marked primary because Spring Cloud Gateway's RequestRateLimiter factory injects a
-    // single default KeyResolver. Two candidates without a primary is a startup failure.
-    // The IP resolver is selected explicitly per route via "#{@ipKeyResolver}".
+    // Marked primary because Spring Cloud Gateway's RequestRateLimiter factory injects a single
+    // default KeyResolver.
     @Primary
     public KeyResolver userKeyResolver() {
         return exchange ->
@@ -58,14 +40,7 @@ public class RateLimiterConfig {
         return exchange -> Mono.just(clientAddressKey(exchange));
     }
 
-    /**
-     * The client's address.
-     *
-     * <p>Read from the remote address rather than {@code X-Forwarded-For}, because the
-     * gateway is the outermost hop: any forwarding header on an inbound request was set by
-     * the client and is therefore forgeable. Trusting it here would let an attacker rotate
-     * a header value to bypass the limit entirely.
-     */
+    /** The client's address. */
     private static String clientAddressKey(org.springframework.web.server.ServerWebExchange exchange) {
         var remoteAddress = exchange.getRequest().getRemoteAddress();
 

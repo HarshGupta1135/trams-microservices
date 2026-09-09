@@ -15,21 +15,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Transactional persistence for notifications, and the enforcement point for idempotency.
- *
- * <p>Each method is its own short transaction, deliberately. Delivery (an SMTP
- * conversation) happens <em>between</em> {@link #claim} and {@link #markSent}, outside any
- * transaction: holding a database transaction open across a network call to a third party
- * would pin a connection for the duration of someone else's latency, and a slow relay
- * would exhaust the pool.
- *
- * <p>The cost of that choice is a window where a crash leaves a row {@code PENDING} with
- * the email possibly sent. That is the correct trade-off for this domain — the event will
- * be redelivered and the recipient may receive a duplicate notification, which is far
- * preferable to holding database connections hostage to SMTP, and strictly better than the
- * alternative failure mode of never sending at all.
- */
+/** Transactional persistence for notifications, and the enforcement point for idempotency. */
 @Service
 public class NotificationStore {
 
@@ -41,27 +27,7 @@ public class NotificationStore {
         this.notifications = notifications;
     }
 
-    /**
-     * Claims an event for processing, recording the composed notification.
-     *
-     * <p>This is where at-least-once delivery becomes exactly-once <em>effect</em>. Three
-     * cases are possible:
-     *
-     * <ul>
-     *   <li>No row exists → insert one and return it, so delivery proceeds.
-     *   <li>A row exists and is already {@code SENT} → return empty. The event is a
-     *       redelivery of work that finished; the caller acknowledges and does nothing.
-     *   <li>A row exists but is not sent → return it, so a previously failed delivery is
-     *       retried rather than skipped.
-     * </ul>
-     *
-     * <p>The insert can also lose a race against another replica handling the same
-     * message. The unique constraint on {@code event_id} makes the database the arbiter:
-     * the loser catches the violation and re-reads, converging on the same three cases
-     * above. Correctness therefore does not depend on the two replicas coordinating.
-     *
-     * @return the notification to deliver, or empty if it was already delivered
-     */
+    /** Claims an event for processing, recording the composed notification. */
     @Transactional
     public Optional<Notification> claim(
             EventEnvelope<?> envelope,
@@ -132,10 +98,6 @@ public class NotificationStore {
                 .ifPresent(notification -> notification.markSent(Instant.now()));
     }
 
-    /**
-     * @param exhausted true on the final delivery attempt, which marks the notification
-     *     permanently undelivered rather than leaving it as retryable
-     */
     @Transactional
     public void markFailed(UUID notificationId, String error, boolean exhausted) {
         notifications

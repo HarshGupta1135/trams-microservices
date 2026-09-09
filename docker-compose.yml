@@ -1,15 +1,8 @@
-###############################################################################
-# TRAMS - complete local environment
+# Local environment. Run scripts/generate-secrets.sh and scripts/generate-tls.sh
+# first, then: docker compose up -d --build
 #
-#   bash scripts/generate-secrets.sh   # writes .env with generated secrets
-#   bash scripts/generate-tls.sh       # writes infra/tls (CA + NATS server cert)
-#   docker compose up -d --build
-#
-# Only two ports reach the host: the API Gateway and Mailpit's web UI. The
-# services, database, broker and cache are attached to an internal network and
-# are not published, which is what makes "the gateway is the only entry point"
-# a property of the deployment rather than a convention.
-###############################################################################
+# Only the gateway and Mailpit's UI reach the host. Everything else sits on the
+# internal network, which is what makes the gateway the only entry point.
 
 name: trams
 

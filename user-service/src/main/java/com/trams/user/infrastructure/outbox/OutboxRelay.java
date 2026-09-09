@@ -18,24 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Moves committed events from the outbox to the broker.
- *
- * <p>This is the second half of the transactional outbox. Because publication happens
- * after the database commit, delivery is <em>at-least-once</em>: a crash between a
- * successful publish and marking the row published will republish on the next poll. That
- * is harmless because the event id is the broker's deduplication key, so the duplicate is
- * collapsed inside the stream's duplicate window.
- *
- * <p><strong>Scaling.</strong> Rows are claimed with {@code FOR UPDATE SKIP LOCKED}, so
- * any number of replicas can run this relay concurrently: each claims a disjoint batch and
- * steps over rows another instance holds. No leader election, no coordination.
- *
- * <p><strong>Trade-off worth naming.</strong> Row locks are held for the duration of the
- * batch, which includes the network round-trip to the broker. That is what prevents two
- * relays publishing the same row, and it is why {@code batchSize} is kept modest and the
- * publish timeout short — the product of the two bounds how long a lock can be held.
- */
+/** Moves committed events from the outbox to the broker. */
 @Component
 public class OutboxRelay {
 
@@ -67,8 +50,7 @@ public class OutboxRelay {
                         .register(meters);
 
         // Backlog depth and age are the two signals that matter operationally: a growing
-        // backlog means the broker or the relay is unhealthy, and events are being
-        // delayed even though the API still looks fine.
+        // backlog means the broker or the relay is unhealthy, and events are being delayed.
         Gauge.builder("trams.outbox.pending", () -> outbox.countByStatus(OutboxStatus.PENDING))
                 .description("Events awaiting publication")
                 .register(meters);
@@ -80,12 +62,7 @@ public class OutboxRelay {
                 .register(meters);
     }
 
-    /**
-     * Publishes one batch of due events.
-     *
-     * <p>A failure on one row does not abandon the rest of the batch: each row records its
-     * own outcome, so one poison event cannot block the queue behind it.
-     */
+    /** Publishes one batch of due events. */
     @Scheduled(fixedDelayString = "${trams.outbox.poll-interval-ms:500}")
     @Transactional
     public void publishPending() {
@@ -105,10 +82,8 @@ public class OutboxRelay {
                 published.increment();
                 succeeded++;
             } catch (RuntimeException e) {
-                // Both transient (broker unreachable) and permanent (rejected) failures
-                // land here. The row is rescheduled with backoff, and after
-                // `maxAttempts` it is marked FAILED so it becomes visible rather than
-                // being retried silently forever.
+                // Both transient (broker unreachable) and permanent (rejected) failures land
+                // here.
                 row.markAttemptFailed(
                         e.getMessage(),
                         now,
@@ -146,12 +121,7 @@ public class OutboxRelay {
                 row.getPayload().getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * Removes published rows once they are older than the retention window.
-     *
-     * <p>Published rows are kept for a while as an audit trail of what was emitted, but
-     * the outbox is a queue, not a permanent event store — the stream is that.
-     */
+    /** Removes published rows once they are older than the retention window. */
     @Scheduled(cron = "${trams.outbox.purge-cron:0 15 3 * * *}")
     @Transactional
     public void purgePublished() {

@@ -12,17 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
-/**
- * Token <em>signing</em>, which exists only in this service.
- *
- * <p>Verification (the public key and {@code JwtDecoder}) comes from {@code common-web}
- * and is identical everywhere. The signing key is deliberately not shared: the User
- * Service is the sole issuer, so a compromise of the gateway or the Notification Service
- * yields the ability to read tokens, never to mint them.
- *
- * <p>If {@code trams.security.token.private-key-base64} is absent, startup fails here
- * rather than at the first login attempt.
- */
+/** Token signing, which exists only in this service. */
 @Configuration(proxyBeanMethods = false)
 public class JwtConfig {
 
@@ -39,13 +29,7 @@ public class JwtConfig {
         return RsaKeyLoader.loadPrivateKey(privateKeyBase64);
     }
 
-    /**
-     * Signs access tokens.
-     *
-     * <p>The key is published as a JWK carrying a {@code kid}, which is what makes
-     * rotation possible: a new key can be introduced while verifiers still accept tokens
-     * signed by the previous one.
-     */
+    /** Signs access tokens. */
     @Bean
     public JwtEncoder jwtEncoder(
             RSAPublicKey publicKey, RSAPrivateKey privateKey, TokenProperties properties) {

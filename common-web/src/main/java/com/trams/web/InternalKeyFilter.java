@@ -18,20 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Rejects any request that did not arrive through the API Gateway.
- *
- * <p>This is defence in depth rather than the primary control. The backing services are
- * attached to an internal Docker network and are never published to the host, so this
- * filter is the second, independent barrier: if a network or Compose misconfiguration ever
- * exposed the service directly, unauthenticated traffic would still be refused.
- *
- * <p>Probe and documentation endpoints are exempt so the orchestrator can check health
- * without holding a credential.
- *
- * <p>Can be disabled with {@code trams.security.internal.enabled=false}, which integration
- * tests use to exercise controllers directly.
- */
+/** Rejects any request that did not arrive through the API Gateway. */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 @ConditionalOnProperty(name = "trams.security.internal.enabled", matchIfMissing = true)
@@ -90,14 +77,7 @@ public class InternalKeyFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    /**
-     * Constant-time comparison.
-     *
-     * <p>Both values are hashed first so the compared arrays always have equal length,
-     * which prevents the comparison from leaking the expected key's length, and
-     * {@link MessageDigest#isEqual} then avoids the early return that would let an attacker
-     * recover the key one byte at a time by measuring response times.
-     */
+    /** Constant-time comparison. */
     private boolean matches(String presented) {
         return MessageDigest.isEqual(expectedKeyDigest, digest(presented));
     }

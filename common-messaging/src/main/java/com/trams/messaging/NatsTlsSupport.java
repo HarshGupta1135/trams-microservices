@@ -12,24 +12,11 @@ import java.security.cert.X509Certificate;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 
-/**
- * Builds an {@link SSLContext} that trusts the private CA which signed the NATS server
- * certificate.
- *
- * <p>The CA is read straight from its PEM file and loaded into an in-memory trust store.
- * The alternative — running {@code keytool} to produce a JKS/PKCS12 file and shipping it
- * with a password — adds a build step, a binary artefact and another secret, all to hold
- * a single public certificate. Reading the PEM keeps the deployment to one mounted file.
- */
+/** Builds an SSLContext that trusts the private CA which signed the NATS server certificate. */
 public final class NatsTlsSupport {
 
     private NatsTlsSupport() {}
 
-    /**
-     * @param caFile path to the PEM-encoded CA certificate
-     * @return a context trusting only that CA, with the platform's default protocols
-     * @throws IllegalStateException if the certificate cannot be read or parsed
-     */
     public static SSLContext trustingCa(Path caFile) {
         if (!Files.isReadable(caFile)) {
             throw new IllegalStateException(

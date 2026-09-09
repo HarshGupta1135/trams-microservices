@@ -13,9 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Authenticates users and manages their sessions.
- */
+/** Authenticates users and manages their sessions. */
 @Service
 public class AuthenticationService {
 
@@ -29,7 +27,7 @@ public class AuthenticationService {
 
     /**
      * A valid hash of a value nobody knows, used to spend the same CPU time verifying a
-     * password for an address that does not exist. See {@link #login}.
+     * password for an address that does not exist.
      */
     private final String dummyHash;
 
@@ -57,18 +55,7 @@ public class AuthenticationService {
             Instant refreshTokenExpiresAt,
             User user) {}
 
-    /**
-     * Verifies credentials and starts a session.
-     *
-     * <p><strong>On timing.</strong> When the address is unknown, the password is still
-     * verified against a dummy hash before failing. Returning early would make the
-     * "no such user" path measurably faster than the "wrong password" path, turning
-     * response time into an account-enumeration oracle — which would defeat the point of
-     * returning an identical error message for both.
-     *
-     * @throws InvalidCredentialsException for an unknown address or a wrong password
-     * @throws AccountDisabledException if the account exists but is disabled
-     */
+    /** Verifies credentials and starts a session. */
     @Transactional
     public AuthenticationResult login(
             String email, String rawPassword, RefreshTokenService.ClientContext client) {
@@ -96,14 +83,7 @@ public class AuthenticationService {
         return issueSession(user, client);
     }
 
-    /**
-     * Exchanges a refresh token for a new token pair.
-     *
-     * <p>Rotation happens in {@link RefreshTokenService#rotate}, which also detects
-     * replay of an already-consumed token.
-     *
-     * @throws InvalidRefreshTokenException if the token is unknown, expired or replayed
-     */
+    /** Exchanges a refresh token for a new token pair. */
     @Transactional
     public AuthenticationResult refresh(String refreshToken, RefreshTokenService.ClientContext client) {
         RefreshTokenService.RotationResult rotation = refreshTokens.rotate(refreshToken, client);

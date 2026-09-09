@@ -9,13 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * This service's domain-specific error mapping.
- *
- * <p>Everything framework-level - validation, malformed bodies, access denied, the
- * catch-all 500 - is handled by {@code common-web}'s DefaultExceptionHandler, which sits
- * at the lowest precedence behind this advice.
- */
+/** This service's domain-specific error mapping. */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class NotificationExceptionHandler {

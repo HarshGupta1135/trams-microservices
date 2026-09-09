@@ -6,14 +6,7 @@ import java.time.Duration;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 
-/**
- * Reports broker connectivity to the readiness probe.
- *
- * <p>This contributes to {@code /actuator/health/readiness} but deliberately not to
- * liveness. A service whose broker is briefly unreachable should stop receiving traffic,
- * not be killed and restarted — restarting cannot fix someone else's outage, and a
- * restart loop across every replica turns a recoverable blip into an outage of its own.
- */
+/** Reports broker connectivity to the readiness probe. */
 public class NatsHealthIndicator implements HealthIndicator {
 
     private final NatsConnectionHolder holder;

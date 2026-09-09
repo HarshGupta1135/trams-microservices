@@ -20,25 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 
-/**
- * Turns a user domain event into a delivered notification.
- *
- * <p>This method is intentionally <em>not</em> {@code @Transactional}. Delivery involves a
- * network call to a mail relay, and wrapping the whole handler in a transaction would hold
- * a database connection for the duration of that call. Instead the transactional work is
- * delegated to {@link NotificationStore} in two short transactions either side of the
- * send.
- *
- * <p>Failures are classified explicitly, because the two classes demand opposite
- * responses:
- *
- * <ul>
- *   <li>An unknown event type or a payload that violates the contract is
- *       <em>permanent</em> — no retry can fix it, so it is dead-lettered immediately.
- *   <li>A failed send is <em>transient</em> — the event is left unacknowledged and
- *       redelivered with backoff.
- * </ul>
- */
+/** Turns a user domain event into a delivered notification. */
 @Service
 public class UserEventHandler {
 
@@ -83,10 +65,6 @@ public class UserEventHandler {
                         .register(meters);
     }
 
-    /**
-     * @throws PermanentEventException if the event cannot ever be processed
-     * @throws TransientEventException if delivery failed and should be retried
-     */
     public void handle(EventEnvelope<JsonNode> envelope, DeliveryContext context) {
         UserEventType eventType =
                 UserEventType.fromWireName(envelope.type())
@@ -97,9 +75,7 @@ public class UserEventHandler {
                                                         .formatted(envelope.type()),
                                                 "unknown-event-type"));
 
-        // Binds and validates against the shared contract. A producer bug cannot write a
-        // notification with a blank recipient: this throws PermanentEventException, and
-        // the message is dead-lettered for inspection.
+        // Binds and validates against the shared contract.
         UserEventPayload payload = codec.readPayload(envelope, eventType.payloadType());
 
         NotificationContent content = composer.compose(payload);

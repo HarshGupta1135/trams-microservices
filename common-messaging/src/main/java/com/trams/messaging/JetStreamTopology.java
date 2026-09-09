@@ -15,18 +15,7 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Declares broker topology as code and reconciles it at startup.
- *
- * <p>Streams are created by the service that owns them rather than by an out-of-band
- * script, so a fresh environment — a laptop, CI, a new cluster — converges to the same
- * durable configuration with no manual step. Reconciliation is idempotent and safe to run
- * concurrently from several replicas.
- *
- * <p>Ownership is deliberate and mirrors the NATS ACLs: the User Service owns
- * {@code USER_EVENTS}, the Notification Service owns {@code DEAD_LETTER}. Neither has
- * permission to reconfigure the other's stream.
- */
+/** Declares broker topology as code and reconciles it at startup. */
 public class JetStreamTopology {
 
     private static final Logger log = LoggerFactory.getLogger(JetStreamTopology.class);
@@ -45,13 +34,7 @@ public class JetStreamTopology {
         this.properties = properties;
     }
 
-    /**
-     * The stream of user domain events.
-     *
-     * <p>{@code Limits} retention keeps events after acknowledgement rather than deleting
-     * them, which is what allows a new consumer to be added later and replay history —
-     * the property that makes this an event log rather than a work queue.
-     */
+    /** The stream of user domain events. */
     public StreamConfiguration userEventsStream() {
         NatsProperties.Stream stream = properties.stream();
 
@@ -91,13 +74,7 @@ public class JetStreamTopology {
                 .build();
     }
 
-    /**
-     * Creates the stream, or updates an existing one to match the declared configuration.
-     *
-     * @throws IllegalStateException if an existing stream conflicts irreconcilably, which
-     *     is surfaced rather than ignored so the service never runs against unexpected
-     *     topology
-     */
+    /** Creates the stream, or updates an existing one to match the declared configuration. */
     public void ensureStream(StreamConfiguration desired) {
         try {
             JetStreamManagement management = connection.jetStreamManagement();
@@ -138,14 +115,7 @@ public class JetStreamTopology {
         }
     }
 
-    /**
-     * Blocks until a stream owned by another service exists.
-     *
-     * <p>Container orchestrators start services concurrently, so the Notification Service
-     * routinely boots before the User Service has created {@code USER_EVENTS}. Waiting
-     * with backoff turns a startup race into a non-event; crash-looping until the producer
-     * happens to win would be the alternative.
-     */
+    /** Blocks until a stream owned by another service exists. */
     public StreamContext awaitStream(String streamName, Duration timeout) throws InterruptedException {
         Instant deadline = Instant.now().plus(timeout);
         Duration wait = Duration.ofMillis(250);

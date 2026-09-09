@@ -22,18 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * A registered account.
- *
- * <p>The entity owns its invariants rather than exposing setters: email normalisation,
- * status transitions and the {@code updatedAt} stamp all happen inside behaviour methods.
- * A service layer therefore cannot construct an inconsistent user, and there is exactly
- * one place to look for the rules.
- *
- * <p>The password is only ever seen here as an already-computed hash. Hashing belongs to
- * the application layer, which owns the encoder, so this class cannot accidentally store
- * a plaintext password.
- */
+/** A registered account. */
 @Entity
 @Table(name = "users")
 public class User {
@@ -56,9 +45,8 @@ public class User {
     private UserStatus status;
 
     /**
-     * Eagerly fetched: the role set is tiny, and it is needed on essentially every read
-     * of a user (to mint a token or authorise a request), so lazy loading would only
-     * guarantee an extra query.
+     * Eagerly fetched: the role set is tiny, and it is needed on essentially every read of a
+     * user (to mint a token or authorise a request), so lazy loading would.
      */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
@@ -90,11 +78,7 @@ public class User {
         this.updatedAt = now;
     }
 
-    /**
-     * Registers a new active user holding the {@link Role#USER} role.
-     *
-     * @param passwordHash an already-hashed password, never plaintext
-     */
+    /** Registers a new active user holding the Role#USER role. */
     public static User register(String email, String passwordHash, String fullName, Instant now) {
         Objects.requireNonNull(email, "email");
         Objects.requireNonNull(passwordHash, "passwordHash");
@@ -103,24 +87,12 @@ public class User {
         return new User(UUID.randomUUID(), email, passwordHash, fullName, EnumSet.of(Role.USER), now);
     }
 
-    /**
-     * Lower-cases and trims an address so that uniqueness is case-insensitive.
-     *
-     * <p>Enforced identically by a CHECK constraint in the schema, which turns "someone
-     * inserted a mixed-case email through another path" from a latent duplicate-account
-     * bug into an immediate error.
-     */
+    /** Lower-cases and trims an address so that uniqueness is case-insensitive. */
     public static String normaliseEmail(String email) {
         return email.strip().toLowerCase(Locale.ROOT);
     }
 
-    /**
-     * Applies a profile change.
-     *
-     * @return the names of the fields that actually changed, in a stable order. Returning
-     *     this rather than a boolean lets the caller emit an event describing precisely
-     *     what happened, and lets it skip the event entirely for a no-op request.
-     */
+    /** Applies a profile change. */
     public List<String> updateProfile(String newFullName, String newEmail, Instant now) {
         List<String> changed = new ArrayList<>(2);
 
@@ -207,10 +179,7 @@ public class User {
         return version;
     }
 
-    /**
-     * Identity is the primary key alone. Comparing mutable business fields would break
-     * the moment an entity is modified inside a collection.
-     */
+    /** Identity is the primary key alone. */
     @Override
     public boolean equals(Object other) {
         if (this == other) return true;

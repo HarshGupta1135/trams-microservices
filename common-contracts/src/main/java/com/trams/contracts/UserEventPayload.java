@@ -10,18 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Payload of a user domain event.
- *
- * <p>The interface is {@code sealed}, which is the point: a consumer can {@code switch}
- * over the permitted subtypes and the compiler will reject the switch if a new event type
- * is added without handling it. Adding an event therefore becomes a compile-time
- * conversation with every consumer rather than a runtime surprise.
- *
- * <p>Every payload carries the recipient's identity, so a consumer never has to call back
- * into the User Service to render a notification — which is what keeps the two services
- * genuinely decoupled rather than merely asynchronous.
- */
+/** Payload of a user domain event. */
 public sealed interface UserEventPayload
         permits UserEventPayload.UserRegistered,
                 UserEventPayload.UserProfileUpdated,
@@ -52,7 +41,7 @@ public sealed interface UserEventPayload
         }
     }
 
-    /** Profile attributes changed; {@code changedFields} allows a specific message. */
+    /** Profile attributes changed; changedFields allows a specific message. */
     record UserProfileUpdated(
             @NotNull UUID userId,
             @NotBlank @Email String email,
@@ -67,10 +56,7 @@ public sealed interface UserEventPayload
         }
     }
 
-    /**
-     * The password was changed. This drives a security alert, so the originating address
-     * is included when the change came from an authenticated session.
-     */
+    /** The password was changed. */
     record UserPasswordChanged(
             @NotNull UUID userId,
             @NotBlank @Email String email,

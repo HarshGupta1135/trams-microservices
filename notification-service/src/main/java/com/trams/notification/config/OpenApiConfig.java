@@ -12,13 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * OpenAPI document for the Notification Service.
- *
- * <p>The advertised server is the gateway, not this service's own port: the gateway is the
- * only address a client can reach, so documenting anything else would hand a reader a URL
- * that does not resolve from outside the internal network.
- */
+/** OpenAPI document for the Notification Service. */
 @Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
 

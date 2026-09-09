@@ -1,12 +1,6 @@
 package com.trams.contracts;
 
-/**
- * NATS message headers accompanying every event.
- *
- * <p>Carrying identifiers in headers as well as in the envelope body lets infrastructure
- * (the dead-letter tooling, a broker CLI, a future router) inspect and route a message
- * without deserialising the payload.
- */
+/** NATS message headers accompanying every event. */
 public final class EventHeaders {
 
     public static final String EVENT_ID = "X-Event-Id";
