@@ -1,0 +1,190 @@
+###############################################################################
+# Notification Service
+#
+# Consumes user domain events from NATS JetStream. It holds only the JWT public
+# key (it never issues tokens) and has no database access to, or HTTP client
+# for, the User Service.
+###############################################################################
+
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: ${NOTIFICATION_DB_URL}
+    username: ${NOTIFICATION_DB_USER}
+    password: ${NOTIFICATION_DB_PASSWORD}
+    hikari:
+      # Must accommodate the event consumer's concurrency plus HTTP traffic:
+      # every in-flight event takes a connection for its short claim and
+      # completion transactions.
+      maximum-pool-size: ${NOTIFICATION_DB_POOL_SIZE:12}
+      minimum-idle: 2
+      connection-timeout: 5000
+      max-lifetime: 900000
+      idle-timeout: 300000
+      pool-name: notification-service-pool
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only validates that entities match it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  threads:
+    virtual:
+      # Event handling is dominated by SMTP and database I/O, so virtual threads
+      # let a small carrier pool absorb far more concurrent work.
+      enabled: true
+
+  jackson:
+    default-property-inclusion: non_null
+
+  data:
+    web:
+      pageable:
+        # Hard ceiling on `size`. Spring's own default is 2000, which is far more rows
+        # than any client here needs and enough to make a single request expensive.
+        max-page-size: 100
+        default-page-size: 20
+
+  lifecycle:
+    # The consumer stops first (its lifecycle phase is high), then in-flight
+    # handlers drain, then connections close.
+    timeout-per-shutdown-phase: 25s
+
+  # Outbound mail. Locally this is Mailpit, which captures everything and shows
+  # it at http://localhost:8025; in production these are a real relay's details.
+  mail:
+    host: ${MAIL_HOST:mailpit}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_AUTH_ENABLED:false}
+          starttls:
+            enable: ${MAIL_STARTTLS_ENABLED:false}
+          # Never let a hung relay block a handler indefinitely; the event is
+          # redelivered instead.
+          connectiontimeout: 5000
+          timeout: 8000
+          writetimeout: 8000
+
+  thymeleaf:
+    # Templates are packaged in the jar and never change at runtime.
+    cache: true
+    check-template-location: true
+
+server:
+  port: ${NOTIFICATION_SERVICE_PORT:8082}
+  server-header:
+  error:
+    whitelabel:
+      enabled: false
+  shutdown: graceful
+  max-http-request-header-size: 16KB
+
+trams:
+  security:
+    token:
+      # Verification only: this service receives no private key and therefore
+      # cannot mint a token even if compromised.
+      public-key-base64: ${JWT_PUBLIC_KEY_BASE64}
+      issuer: ${JWT_ISSUER:https://trams.local}
+      audience: ${JWT_AUDIENCE:trams-api}
+    internal:
+      api-key: ${INTERNAL_API_KEY}
+      enabled: ${INTERNAL_KEY_ENABLED:true}
+
+  nats:
+    url: ${NATS_URL}
+    username: ${NATS_NOTIFICATION_SERVICE_USER}
+    password: ${NATS_NOTIFICATION_SERVICE_PASSWORD}
+    connection-name: notification-service
+    tls:
+      enabled: ${NATS_TLS_ENABLED:true}
+      ca-file: ${NATS_TLS_CA_FILE}
+    stream:
+      replicas: ${NATS_STREAM_REPLICAS:1}
+
+  notification:
+    # EMAIL delivers over SMTP; LOG writes notifications to the log instead,
+    # which makes the whole pipeline demonstrable with no mail server at all.
+    channel: ${NOTIFICATION_CHANNEL:EMAIL}
+    application-name: ${NOTIFICATION_APP_NAME:TRAMS}
+    from-address: ${MAIL_FROM:no-reply@trams.local}
+    from-name: ${MAIL_FROM_NAME:TRAMS}
+    app-url: ${DOCS_PUBLIC_URL:http://localhost:8080}
+    consumer:
+      # Must exceed the worst-case handler time, including a slow SMTP
+      # conversation, or a message would be redelivered while still being
+      # processed. The consumer also sends progress heartbeats to extend it.
+      ack-wait: ${CONSUMER_ACK_WAIT:60s}
+      # Attempts before the event is dead-lettered to the DEAD_LETTER stream.
+      max-deliver: ${CONSUMER_MAX_DELIVER:5}
+      # Back-pressure: the ceiling on unacknowledged messages held by this
+      # replica, which stops it pulling more work than it can finish.
+      max-ack-pending: ${CONSUMER_MAX_ACK_PENDING:256}
+      batch-size: ${CONSUMER_BATCH_SIZE:25}
+      # Independent bindings within this process; scale further with replicas,
+      # which share the same durable consumer.
+      concurrency: ${CONSUMER_CONCURRENCY:4}
+      backoff-base: 2s
+      backoff-max: 60s
+      # The User Service creates the stream this service consumes, and
+      # orchestrators start both concurrently, so waiting is the normal path.
+      stream-wait-timeout: ${CONSUMER_STREAM_WAIT:2m}
+
+  docs:
+    public-url: ${DOCS_PUBLIC_URL:http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+      group:
+        # Liveness excludes dependencies deliberately: restarting this process
+        # cannot fix a broker outage, and a restart loop would make things worse.
+        liveness:
+          include: ping
+        readiness:
+          include: ping,db,nats
+  metrics:
+    tags:
+      application: notification-service
+  observations:
+    key-values:
+      application: notification-service
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.trams: ${LOG_LEVEL_TRAMS:INFO}

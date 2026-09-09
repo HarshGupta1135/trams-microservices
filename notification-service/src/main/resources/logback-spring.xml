@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logging configuration.
+
+    Two appenders, selected by Spring profile rather than by a conditional
+    expression - `<if>` in Logback needs Janino on the classpath, and adding a
+    runtime dependency just to branch on an environment variable is not worth it.
+
+      * `docker` profile  -> single-line JSON, for a log aggregator to parse.
+      * any other profile -> human-readable console output, for local work.
+
+    In both cases the correlation id from the MDC is included, which is what makes
+    a single request traceable across the gateway, this service, and the events it
+    publishes.
+-->
+<configuration>
+
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="notification-service"/>
+
+    <springProfile name="docker">
+    <!-- Structured output for deployed environments. -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</timestampPattern>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>message</message>
+                <thread>thread</thread>
+                <logger>logger</logger>
+                <levelValue>[ignore]</levelValue>
+            </fieldNames>
+            <customFields>{"service":"${appName}"}</customFields>
+            <!-- Includes correlationId and eventId when present. -->
+            <includeMdc>true</includeMdc>
+            <includeContext>false</includeContext>
+            <!-- Full stack traces, with framework noise collapsed. -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>40</maxDepthPerThrowable>
+                <maxLength>8192</maxLength>
+                <shortenedClassNameLength>40</shortenedClassNameLength>
+                <exclude>^sun\.reflect\..*\.invoke</exclude>
+                <exclude>^net\.sf\.cglib\.proxy\.MethodProxy\.invoke</exclude>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+    </springProfile>
+
+    <springProfile name="!docker">
+    <!-- Readable output for local development. -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%-16.16thread) %magenta(%X{correlationId:-—}) %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    </springProfile>
+
+    <springProfile name="docker">
+        <root level="${LOG_LEVEL:-INFO}">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!docker">
+        <root level="${LOG_LEVEL:-INFO}">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- Startup banners and connection-pool chatter are not interesting at INFO. -->
+    <logger name="com.zaxxer.hikari.HikariDataSource" level="WARN"/>
+    <logger name="org.hibernate.orm.connections.pooling" level="WARN"/>
+</configuration>

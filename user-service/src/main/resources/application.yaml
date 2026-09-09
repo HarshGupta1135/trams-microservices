@@ -1,0 +1,179 @@
+###############################################################################
+# User Service
+#
+# Every secret is read from the environment and has no default. The service
+# fails fast at startup if one is missing, rather than silently falling back to
+# a well-known value.
+###############################################################################
+
+spring:
+  application:
+    name: user-service
+
+  datasource:
+    url: ${USER_DB_URL}
+    username: ${USER_DB_USER}
+    password: ${USER_DB_PASSWORD}
+    hikari:
+      # Sized per replica, not per cluster: Postgres serves a bounded number of
+      # backends, so this must be (max_connections / expected replicas) with
+      # headroom, not as large as possible.
+      maximum-pool-size: ${USER_DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 5000
+      # Recycled well before any server- or proxy-side idle timeout, so the pool
+      # never hands out a connection the server has already dropped.
+      max-lifetime: 900000
+      idle-timeout: 300000
+      pool-name: user-service-pool
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema. Letting Hibernate generate DDL would make the
+      # live schema a side effect of entity code, with no review and no rollback.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        # Fails the build-time contract rather than silently emitting N+1
+        # queries for a lazily-loaded collection outside a session.
+        enable_lazy_load_no_trans: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # The schema is created by this service alone; no baseline is expected.
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  threads:
+    virtual:
+      # Java 25 virtual threads: request handling is dominated by database and
+      # broker I/O, so unmounting a carrier thread while blocked lets a small
+      # pool serve far more concurrent requests.
+      enabled: true
+
+  jackson:
+    default-property-inclusion: non_null
+
+  data:
+    web:
+      pageable:
+        # Hard ceiling on `size`. Spring's own default is 2000, which is far more rows
+        # than any client here needs and enough to make a single request expensive.
+        max-page-size: 100
+        default-page-size: 20
+
+  lifecycle:
+    # Lets in-flight requests finish and the NATS connection drain before exit.
+    # Must stay below the orchestrator's stop grace period.
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: ${USER_SERVICE_PORT:8081}
+  # Never advertise the server implementation or version.
+  server-header:
+  error:
+    whitelabel:
+      enabled: false
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: 100
+  # Caps request line + headers, bounding a slow-loris style resource attack.
+  max-http-request-header-size: 16KB
+
+trams:
+  security:
+    token:
+      # Base64-encoded PEM. The private key is supplied ONLY to this service, which is
+      # the sole token issuer; every other service receives the public key alone.
+      private-key-base64: ${JWT_PRIVATE_KEY_BASE64}
+      public-key-base64: ${JWT_PUBLIC_KEY_BASE64}
+      issuer: ${JWT_ISSUER:https://trams.local}
+      audience: ${JWT_AUDIENCE:trams-api}
+      key-id: ${JWT_KEY_ID:trams-signing-key-1}
+      access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
+      refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:30d}
+    internal:
+      api-key: ${INTERNAL_API_KEY}
+      enabled: ${INTERNAL_KEY_ENABLED:true}
+
+  nats:
+    url: ${NATS_URL}
+    username: ${NATS_USER_SERVICE_USER}
+    password: ${NATS_USER_SERVICE_PASSWORD}
+    connection-name: user-service
+    tls:
+      enabled: ${NATS_TLS_ENABLED:true}
+      ca-file: ${NATS_TLS_CA_FILE}
+    stream:
+      replicas: ${NATS_STREAM_REPLICAS:1}
+      max-age: ${NATS_STREAM_MAX_AGE:30d}
+      # Must exceed the outbox poll interval by a wide margin so a relay crash
+      # between publishing and marking the row cannot duplicate an event.
+      duplicate-window: ${NATS_DUPLICATE_WINDOW:5m}
+
+  outbox:
+    # Modest batches keep row locks short: locks are held across the publish
+    # round-trip to prevent two relays shipping the same row.
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:500}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:8}
+    base-backoff: 1s
+    max-backoff: 5m
+    retention: 7d
+    publish-timeout: 5s
+    publish-attempts: 3
+    purge-cron: ${OUTBOX_PURGE_CRON:0 15 3 * * *}
+
+  docs:
+    public-url: ${DOCS_PUBLIC_URL:http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only what is needed to operate the service. Exposing everything would
+        # publish env, beans and configprops on an internal port.
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+      group:
+        # Liveness deliberately excludes dependencies: restarting this process
+        # cannot fix a database outage, and a restart loop across every replica
+        # would turn a recoverable blip into a self-inflicted outage.
+        liveness:
+          include: ping
+        # Readiness does check them, so an unhealthy replica stops receiving
+        # traffic while staying alive.
+        readiness:
+          include: ping,db,nats
+  metrics:
+    tags:
+      application: user-service
+  observations:
+    key-values:
+      application: user-service
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.trams: ${LOG_LEVEL_TRAMS:INFO}
+    # Uncomment to inspect generated SQL during development.
+    # org.hibernate.SQL: DEBUG

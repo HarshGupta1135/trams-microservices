@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.trams</groupId>
+        <artifactId>trams-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>common-messaging</artifactId>
+    <name>TRAMS :: Common Messaging</name>
+    <description>
+        Shared NATS/JetStream infrastructure: connection lifecycle, TLS, envelope
+        serialisation, topology reconciliation and a health indicator.
+
+        This is deliberately scoped to *infrastructure* that both the producer and the
+        consumer need identically. It contains no domain logic and no entities, so the two
+        services stay independently deployable; what they share here is the same thing
+        they would otherwise both copy.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.trams</groupId>
+            <artifactId>common-contracts</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.nats</groupId>
+            <artifactId>jnats</artifactId>
+        </dependency>
+
+        <!-- Auto-configuration and typed configuration properties support. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Jackson 3 (tools.jackson.*), the version managed by the Boot BOM. -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!--
+            Actuator is optional: the NATS health indicator only registers when the
+            consuming service exposes Actuator endpoints.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-health</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <!--
+            Only the Bean Validation API is needed at compile time; the engine is
+            supplied by the consuming service. Tests need a real implementation to
+            exercise contract enforcement, hence test scope here.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

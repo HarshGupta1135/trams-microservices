@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.trams</groupId>
+        <artifactId>trams-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>common-contracts</artifactId>
+    <name>TRAMS :: Common Contracts</name>
+    <description>
+        The published integration contract between event producers and consumers: the
+        event envelope, user event payloads, and the broker topology names.
+
+        This module deliberately contains no framework code, no entities and no
+        utilities. A shared library that grows beyond the wire contract is how a set of
+        microservices quietly turns back into a distributed monolith, so the scope here
+        is kept to what both sides must agree on by definition.
+    </description>
+
+    <dependencies>
+        <!--
+            Bean Validation annotations only (no engine). Consumers validate inbound
+            payloads against the same constraints the producer was built with.
+        -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

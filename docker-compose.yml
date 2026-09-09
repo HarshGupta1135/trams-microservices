@@ -1,0 +1,316 @@
+###############################################################################
+# TRAMS - complete local environment
+#
+#   bash scripts/generate-secrets.sh   # writes .env with generated secrets
+#   bash scripts/generate-tls.sh       # writes infra/tls (CA + NATS server cert)
+#   docker compose up -d --build
+#
+# Only two ports reach the host: the API Gateway and Mailpit's web UI. The
+# services, database, broker and cache are attached to an internal network and
+# are not published, which is what makes "the gateway is the only entry point"
+# a property of the deployment rather than a convention.
+###############################################################################
+
+name: trams
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks: [trams]
+  # PID 1 in a container does not reap children or forward signals by default;
+  # this gives the JVM a proper init so SIGTERM reaches it and shutdown is
+  # graceful rather than a kill.
+  init: true
+  # Must exceed the application's own shutdown budget so it can drain in-flight
+  # work (HTTP requests, event acknowledgements) instead of being killed.
+  stop_grace_period: 40s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ===========================================================================
+  # PostgreSQL - one instance, one database per service
+  #
+  # Each service owns a database with its own role and no CONNECT privilege on
+  # the other (see infra/postgres/init). The isolation is enforced by the
+  # database, not by convention.
+  # ===========================================================================
+  postgres:
+    image: postgres:18-alpine
+    container_name: trams-postgres
+    restart: unless-stopped
+    networks: [trams]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      USER_DB_NAME: ${USER_DB_NAME}
+      USER_DB_USER: ${USER_DB_USER}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      NOTIFICATION_DB_NAME: ${NOTIFICATION_DB_NAME}
+      NOTIFICATION_DB_USER: ${NOTIFICATION_DB_USER}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+    volumes:
+      # PostgreSQL 18+ expects a SINGLE mount at /var/lib/postgresql, not at
+      # /var/lib/postgresql/data as in earlier versions: 18 stores its cluster in
+      # a major-version subdirectory so that `pg_upgrade --link` can work without
+      # crossing a mount boundary. Mounting the old path makes the image refuse to
+      # start.
+      - postgres-data:/var/lib/postgresql
+      # Runs once, on first initialisation of the volume.
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # ===========================================================================
+  # NATS with JetStream - the only channel between the two services
+  #
+  # TLS-encrypted, with per-service credentials scoped by subject ACLs. See
+  # infra/nats/nats-server.conf.
+  # ===========================================================================
+  nats:
+    image: nats:2.11-alpine
+    container_name: trams-nats
+    restart: unless-stopped
+    networks: [trams]
+    command:
+      - "--config"
+      - "/etc/nats/nats-server.conf"
+    environment:
+      # Interpolated into the config file, so no credential is written to disk
+      # in this repository.
+      NATS_USER_SERVICE_USER: ${NATS_USER_SERVICE_USER}
+      NATS_USER_SERVICE_PASSWORD: ${NATS_USER_SERVICE_PASSWORD}
+      NATS_NOTIFICATION_SERVICE_USER: ${NATS_NOTIFICATION_SERVICE_USER}
+      NATS_NOTIFICATION_SERVICE_PASSWORD: ${NATS_NOTIFICATION_SERVICE_PASSWORD}
+    volumes:
+      - ./infra/nats/nats-server.conf:/etc/nats/nats-server.conf:ro
+      - ./infra/tls:/etc/nats/tls:ro
+      # JetStream's file store: events survive a broker restart.
+      - nats-data:/data/jetstream
+    healthcheck:
+      # The monitoring endpoint is bound to the internal network only and is
+      # never published to the host.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8222/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # ===========================================================================
+  # Redis - backs the gateway's distributed rate limiter
+  # ===========================================================================
+  redis:
+    image: redis:8-alpine
+    container_name: trams-redis
+    restart: unless-stopped
+    networks: [trams]
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      # Rate-limit counters are short-lived and reconstructible, so persistence
+      # is disabled: losing them on restart costs one window of accuracy, and
+      # avoids fsync latency on the request path.
+      - "--save"
+      - ""
+      - "--appendonly"
+      - "no"
+      - "--maxmemory"
+      - "128mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  # ===========================================================================
+  # Mailpit - captures every outbound email and shows it in a web UI
+  #
+  # Lets the full event pipeline be observed end to end: register a user, then
+  # watch the welcome email arrive at http://localhost:8025.
+  # ===========================================================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: trams-mailpit
+    restart: unless-stopped
+    networks: [trams]
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8025/readyz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # ===========================================================================
+  # User Service - owns identity, issues tokens, publishes events
+  # ===========================================================================
+  user-service:
+    <<: *service-defaults
+    container_name: trams-user-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      USER_SERVICE_PORT: 8081
+      USER_DB_URL: jdbc:postgresql://postgres:5432/${USER_DB_NAME}
+      USER_DB_USER: ${USER_DB_USER}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      NATS_URL: ${NATS_URL}
+      NATS_TLS_CA_FILE: ${NATS_TLS_CA_FILE}
+      NATS_USER_SERVICE_USER: ${NATS_USER_SERVICE_USER}
+      NATS_USER_SERVICE_PASSWORD: ${NATS_USER_SERVICE_PASSWORD}
+      # This is the only service given the private key: it alone issues tokens.
+      JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
+      JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      JWT_KEY_ID: ${JWT_KEY_ID}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL}
+      JWT_REFRESH_TOKEN_TTL: ${JWT_REFRESH_TOKEN_TTL}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      DOCS_PUBLIC_URL: http://localhost:${GATEWAY_PORT:-8080}
+    volumes:
+      # Read-only: the service needs the CA to verify the broker, nothing more.
+      - ./infra/tls:/etc/nats/tls:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # Generous: the JVM must start, migrations must run and the stream must be
+      # reconciled before this replica is ready.
+      start_period: 60s
+
+  # ===========================================================================
+  # Notification Service - consumes events, delivers notifications
+  # ===========================================================================
+  notification-service:
+    <<: *service-defaults
+    container_name: trams-notification-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      NOTIFICATION_SERVICE_PORT: 8082
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/${NOTIFICATION_DB_NAME}
+      NOTIFICATION_DB_USER: ${NOTIFICATION_DB_USER}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      NATS_URL: ${NATS_URL}
+      NATS_TLS_CA_FILE: ${NATS_TLS_CA_FILE}
+      NATS_NOTIFICATION_SERVICE_USER: ${NATS_NOTIFICATION_SERVICE_USER}
+      NATS_NOTIFICATION_SERVICE_PASSWORD: ${NATS_NOTIFICATION_SERVICE_PASSWORD}
+      # Public key only - this service cannot mint a token.
+      JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_STARTTLS_ENABLED: ${MAIL_STARTTLS_ENABLED}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      DOCS_PUBLIC_URL: http://localhost:${GATEWAY_PORT:-8080}
+    volumes:
+      - ./infra/tls:/etc/nats/tls:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # ===========================================================================
+  # API Gateway - the only published entry point
+  # ===========================================================================
+  api-gateway:
+    <<: *service-defaults
+    container_name: trams-api-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: api-gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      GATEWAY_PORT: 8080
+      USER_SERVICE_URI: ${USER_SERVICE_URI}
+      NOTIFICATION_SERVICE_URI: ${NOTIFICATION_SERVICE_URI}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Public key only.
+      JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      RATE_LIMIT_REPLENISH_RATE: ${RATE_LIMIT_REPLENISH_RATE}
+      RATE_LIMIT_BURST_CAPACITY: ${RATE_LIMIT_BURST_CAPACITY}
+      AUTH_RATE_LIMIT_REPLENISH_RATE: ${AUTH_RATE_LIMIT_REPLENISH_RATE}
+      AUTH_RATE_LIMIT_BURST_CAPACITY: ${AUTH_RATE_LIMIT_BURST_CAPACITY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      # `service_started`, not `service_healthy`: the gateway must come up even
+      # when an upstream is down. Its circuit breakers and fallbacks exist
+      # precisely to answer that case, and refusing to start would turn one
+      # service's outage into a total one.
+      user-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+
+networks:
+  trams:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  nats-data:

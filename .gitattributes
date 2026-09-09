@@ -1,0 +1,45 @@
+# Line endings
+#
+# Normalise everything to LF in the repository. This is not cosmetic: several
+# files in this project are executed inside Linux containers regardless of the
+# host they were cloned on.
+#
+#   infra/postgres/init/*.sh   mounted into the postgres container and run by its
+#                              entrypoint
+#   scripts/*.sh               run under bash (Git Bash, WSL, macOS, Linux)
+#   Dockerfile, *.conf         read by Docker and by nats-server
+#
+# Without this, a clone on Windows with core.autocrlf=true rewrites those files
+# with CRLF, and the container's shell fails on the stray carriage return with
+# `$'\r': command not found` - a confusing failure a long way from its cause.
+
+* text=auto eol=lf
+
+# Explicit, so these can never be converted even if a local config disagrees.
+*.sh            text eol=lf
+*.bash          text eol=lf
+Dockerfile      text eol=lf
+*.conf          text eol=lf
+*.sql           text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.properties    text eol=lf
+mvnw            text eol=lf
+
+# Windows-only files keep CRLF.
+*.cmd           text eol=crlf
+*.bat           text eol=crlf
+
+# Binary: never touch.
+*.jar           binary
+*.png           binary
+*.jpg           binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+
+# Language hints for GitHub's statistics, so the repository is reported as Java
+# rather than as HTML because of the email templates.
+*.java          linguist-language=Java
+*.html          linguist-detectable=false
+docs/**         linguist-documentation

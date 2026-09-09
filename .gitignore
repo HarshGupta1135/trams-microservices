@@ -1,0 +1,38 @@
+# Build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# The original assignment brief - kept locally, not published
+task.md
+
+# Environment & secrets - never commit these
+.env
+.env.*
+!.env.example
+
+# Generated TLS material (dev only; regenerate with scripts/generate-tls.sh)
+infra/tls/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+*.tmp
+
+.env.bak
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,273 @@
+###############################################################################
+# API Gateway - the single public entry point
+#
+# Note the property namespace: `spring.cloud.gateway.server.webflux.*`.
+# Spring Cloud Gateway 5.x split its configuration by runtime, and the legacy
+# `spring.cloud.gateway.routes` prefix is silently ignored - it binds nothing
+# and the gateway starts with zero routes.
+###############################################################################
+
+spring:
+  application:
+    name: api-gateway
+
+  # Backs the distributed rate limiter. Redis rather than in-memory counters so
+  # the limit stays correct across gateway replicas: N replicas with local
+  # counters would permit N times the intended rate.
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 2s
+      connect-timeout: 2s
+      # No connection pool, deliberately. Lettuce multiplexes every command over a
+      # single connection, so a pool adds no throughput for a reactive client - and
+      # enabling one requires commons-pool2 on the classpath, which the reactive
+      # starter does not bring.
+      lettuce:
+        shutdown-timeout: 200ms
+
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Applied to every route.
+          default-filters:
+            # Removes hop-by-hop and duplicate headers before proxying.
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
+          httpclient:
+            connect-timeout: 2000
+            # Upstream read timeout. Deliberately shorter than a client's
+            # patience so a hung service surfaces as a fast 504 rather than
+            # holding connections open across the whole system.
+            response-timeout: 10s
+            pool:
+              type: elastic
+              max-idle-time: 30s
+
+          # Metrics per route, so latency and error rates can be attributed.
+          metrics:
+            enabled: true
+
+          routes:
+            # ---------------------------------------------------------------
+            # Authentication - unauthenticated, and therefore rate limited far
+            # more aggressively. These are the endpoints attacked with
+            # credential stuffing and password spraying, so the bucket is keyed
+            # by source address (there is no user id yet).
+            # ---------------------------------------------------------------
+            - id: user-service-auth
+              uri: ${USER_SERVICE_URI:http://user-service:8081}
+              predicates:
+                - Path=/api/v1/auth/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: ${AUTH_RATE_LIMIT_REPLENISH_RATE:3}
+                    redis-rate-limiter.burstCapacity: ${AUTH_RATE_LIMIT_BURST_CAPACITY:8}
+                    redis-rate-limiter.requestedTokens: 1
+                - name: CircuitBreaker
+                  args:
+                    name: userService
+                    fallbackUri: forward:/fallback/user
+                # No Retry filter here: these are non-idempotent POSTs, and
+                # retrying a login or a registration could duplicate an account
+                # or burn a rate-limit budget twice.
+
+            # ---------------------------------------------------------------
+            # User profiles - authenticated. Keyed by user id so one heavy
+            # client cannot exhaust the budget for everyone behind a shared
+            # NAT or carrier gateway.
+            # ---------------------------------------------------------------
+            - id: user-service-users
+              uri: ${USER_SERVICE_URI:http://user-service:8081}
+              predicates:
+                - Path=/api/v1/users/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@userKeyResolver}"
+                    redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:20}
+                    redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+                    redis-rate-limiter.requestedTokens: 1
+                - name: CircuitBreaker
+                  args:
+                    name: userService
+                    fallbackUri: forward:/fallback/user
+                # Retries are restricted to GET: only safe, idempotent methods
+                # can be replayed without risking a duplicate side effect.
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    series: SERVER_ERROR
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: false
+
+            # ---------------------------------------------------------------
+            # OpenAPI documents.
+            #
+            # The services publish their specs on /v3/api-docs, which no /api/v1
+            # route reaches, so each is proxied explicitly and rewritten. Without
+            # these the aggregated Swagger UI would render an empty selector.
+            # ---------------------------------------------------------------
+            - id: user-service-openapi
+              uri: ${USER_SERVICE_URI:http://user-service:8081}
+              predicates:
+                - Path=/api-docs/user-service
+              filters:
+                - RewritePath=/api-docs/user-service, /v3/api-docs
+
+            - id: notification-service-openapi
+              uri: ${NOTIFICATION_SERVICE_URI:http://notification-service:8082}
+              predicates:
+                - Path=/api-docs/notification-service
+              filters:
+                - RewritePath=/api-docs/notification-service, /v3/api-docs
+
+            # ---------------------------------------------------------------
+            # Notification history - read-only, so every method here is safe
+            # to retry.
+            # ---------------------------------------------------------------
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URI:http://notification-service:8082}
+              predicates:
+                - Path=/api/v1/notifications/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@userKeyResolver}"
+                    redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:20}
+                    redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+                    redis-rate-limiter.requestedTokens: 1
+                - name: CircuitBreaker
+                  args:
+                    name: notificationService
+                    fallbackUri: forward:/fallback/notification
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    series: SERVER_ERROR
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: false
+
+server:
+  port: ${GATEWAY_PORT:8080}
+  server-header:
+  shutdown: graceful
+  # The gateway is the only internet-facing component, so request-size limits
+  # are enforced here rather than relying on each service.
+  max-http-request-header-size: 16KB
+  netty:
+    max-initial-line-length: 8KB
+
+# Circuit-breaker behaviour per upstream. A breaker that opens after a burst of
+# failures stops the gateway from queueing work for a service that is already
+# down, which is what prevents one failing service from consuming the gateway's
+# entire connection pool and taking the healthy routes with it.
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      userService:
+        baseConfig: default
+      notificationService:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        # Slightly above the HTTP client's response timeout, so a slow upstream
+        # is reported by the client rather than being cut off mid-response.
+        timeoutDuration: 11s
+        cancelRunningFuture: true
+    instances:
+      userService:
+        baseConfig: default
+      notificationService:
+        baseConfig: default
+
+trams:
+  gateway:
+    # Attached to every proxied request; the services reject anything without it.
+    internal-api-key: ${INTERNAL_API_KEY}
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+  security:
+    token:
+      # Verification only. The gateway can reject a bad token at the edge but
+      # holds no signing key, so it cannot mint one.
+      public-key-base64: ${JWT_PUBLIC_KEY_BASE64}
+      issuer: ${JWT_ISSUER:https://trams.local}
+      audience: ${JWT_AUDIENCE:trams-api}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+      group:
+        liveness:
+          include: ping
+        # Redis is a readiness dependency: without it the rate limiter cannot
+        # make a decision, so this replica should not take traffic.
+        readiness:
+          include: ping,redis
+    gateway:
+      access: read-only
+  metrics:
+    tags:
+      application: api-gateway
+
+# Aggregated API documentation. The gateway serves one Swagger UI with a
+# selector for each service, so a reader has a single URL for the whole system
+# rather than needing to reach internal ports that are not published.
+springdoc:
+  api-docs:
+    # Must stay enabled even though the gateway has no API of its own to document:
+    # Swagger UI bootstraps by fetching /v3/api-docs/swagger-config, and disabling
+    # api-docs removes that endpoint along with the /docs entry point, leaving only
+    # the static webjar assets reachable.
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    path: /docs
+    # Show only the two services, not the gateway's own (empty) document.
+    disable-swagger-default-url: true
+    urls:
+      - name: User Service
+        url: /api-docs/user-service
+      - name: Notification Service
+        url: /api-docs/notification-service
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.trams: ${LOG_LEVEL_TRAMS:INFO}
+    # Uncomment to trace route matching and filter order during development.
+    # org.springframework.cloud.gateway: DEBUG

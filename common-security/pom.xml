@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.trams</groupId>
+        <artifactId>trams-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>common-security</artifactId>
+    <name>TRAMS :: Common Security</name>
+    <description>
+        Token configuration and RSA key loading, shared by every component that verifies an
+        access token.
+
+        Deliberately free of any web framework: the two backing services are servlet
+        applications while the gateway is reactive, so anything they share must not drag in
+        spring-boot-starter-web - doing so would make Spring Boot try to start a servlet
+        container inside the gateway.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <!-- @Validated on the properties record. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+    </dependencies>
+</project>
