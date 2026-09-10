@@ -138,44 +138,79 @@ Full design rationale, failure analysis and trade-offs: **[docs/ARCHITECTURE.md]
 
 ## Quick start
 
-**Prerequisites:** Docker (with Compose) and `bash` + `openssl`. On Windows use **Git Bash**
-or WSL. Nothing else — no local Java or Maven needed; the images build themselves.
+**Only Docker is required.** No Java, no Maven, no NATS or PostgreSQL install — the
+images build themselves.
 
 ```bash
-bash scripts/generate-secrets.sh    # writes .env: RSA key pair + random passwords
-bash scripts/generate-tls.sh        # writes infra/tls: CA + NATS server certificate
-docker compose up -d --build        # builds and starts all 7 containers
+git clone https://github.com/HarshGupta1135/trams-microservices.git
+cd trams-microservices
+bash scripts/start.sh
 ```
 
-The first build takes a few minutes (it compiles three Spring Boot applications). Then:
+On Windows, double-click **`start.cmd`** or run it from CMD/PowerShell — it finds Git
+Bash or WSL for you.
+
+That one command checks Docker is running, generates the secrets and TLS material,
+builds and starts all seven containers, waits for every one to report healthy, creates
+two demo accounts, and prints where to go next. First run takes a few minutes to compile
+three Spring Boot applications; afterwards it is seconds.
+
+Add `--verify` to run the 34-check end-to-end suite immediately after startup:
 
 ```bash
-bash scripts/smoke-test.sh          # 34 end-to-end assertions
+bash scripts/start.sh --verify
 ```
+
+### Then open
 
 | URL | What |
 |---|---|
 | **<http://localhost:8080/docs>** | **Start here** — Swagger UI, both services in one selector |
-| <http://localhost:8025> | Mailpit — every delivered notification |
+| <http://localhost:8025> | Mailpit — every notification the system delivered |
 | <http://localhost:8080/actuator/health/readiness> | Gateway readiness |
-| <http://localhost:8080> | The gateway root answers **401**, and should: every route is
-authenticated unless explicitly public, so there is no landing page |
+| <http://localhost:8080> | The gateway root answers **401**, and should: every route is authenticated unless explicitly public, so there is no landing page |
 
-Neither service, nor Postgres, NATS or Redis, is published to the host. That is enforced by
-`docker-compose.yml`, not by convention — verify with `docker compose ps`.
+### Log in
 
-**Nothing in this repository contains a working credential.** `generate-secrets.sh` creates
-`.env` (git-ignored) with a fresh RSA key pair and random passwords; `generate-tls.sh`
-creates a local CA. A checkout is not a set of usable keys.
+Two accounts are created for you:
 
-### Shutting down
+| Email | Password | Roles |
+|---|---|---|
+| `demo@trams.local` | `demo-password-1234` | USER |
+| `admin@trams.local` | `admin-password-1234` | ADMIN + USER |
+
+In Swagger: `POST /api/v1/auth/login` → copy `accessToken` → click **Authorize** (top
+right) → paste it. No `Bearer ` prefix; Swagger adds that. Or run `bash scripts/token.sh`
+to print a fresh one (they last 15 minutes by design — stateless tokens cannot be revoked
+before expiry, so the refresh token is the long-lived, revocable half).
+
+### See the event pipeline in 30 seconds
+
+Register any user through `POST /api/v1/auth/register`, then open
+**<http://localhost:8025>**. The welcome email is already there, having travelled from a
+database transaction through the outbox and NATS JetStream into the Notification Service —
+with no REST or WebSocket call between the two services. `GET /api/v1/notifications/me`
+shows the same event recorded as a notification.
+
+### Running it manually
+
+If you would rather not use the script:
+
+```bash
+bash scripts/generate-secrets.sh    # writes .env: RSA key pair + random passwords
+bash scripts/generate-tls.sh        # writes infra/tls: CA + NATS server certificate
+docker compose up -d --build
+```
+
+**Nothing in this repository contains a working credential.** Both scripts generate fresh
+material locally, and `.env` is git-ignored. A checkout is not a set of usable keys.
+
+### Stopping
 
 ```bash
 docker compose down        # stop, keep data
 docker compose down -v     # stop and delete the database and stream volumes
 ```
-
----
 
 ## Verifying it works
 
